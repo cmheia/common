@@ -164,6 +164,7 @@ namespace Common {
 	{
 	public:
 		t_com_item(int i,const char* s){_s = s; _i=i;}
+		t_com_item(int i) { _s = std::to_string(i); _i = i; }
 
 		// 返回字符串部分: 比如: 无校验位
 		std::string get_s() const {return _s;}
@@ -237,6 +238,11 @@ namespace Common {
 		c_baudrate(int id, const char* s, bool inner)
 			: t_com_item(id, s)
 			, _inner(inner)
+		{}
+
+		c_baudrate(int id, bool inner)
+				: t_com_item(id)
+				, _inner(inner)
 		{}
 
 		bool is_added_by_user() const { return !_inner; }

@@ -126,8 +126,26 @@ namespace Common {
 			SMART_ENSURE(*hwndlist[i].phwnd = ::GetDlgItem(m_hWnd, hwndlist[i].id), !=NULL)(i).Fatal();
 		}
 
-		static char* aBaudRate[]={"110","300","600","1200","2400","4800","9600","14400","19200","38400","57600","115200","128000","256000", NULL};
-		static DWORD iBaudRate[]={CBR_110,CBR_300,CBR_600,CBR_1200,CBR_2400,CBR_4800,CBR_9600,CBR_14400,CBR_19200,CBR_38400,CBR_57600,CBR_115200,CBR_128000,CBR_256000};
+		static int iBaudRate[] = {
+			110,
+			300,
+			600,
+			1200,
+			2400,
+			4800,
+			9600,
+			14400,
+			19200,
+			38400,
+			57600,
+			74880,
+			115200,
+			128000,
+			230400,
+			256000,
+			460800,
+			921600,
+		};
 		static char* aParity[] = {"无","奇校验","偶校验", "标记", "空格", NULL};
 		static BYTE iParity[] = { NOPARITY, ODDPARITY,EVENPARITY, MARKPARITY, SPACEPARITY };
 		static char* aStopBit[] = {"1位", "1.5位","2位", NULL};
@@ -135,8 +153,9 @@ namespace Common {
 		static char* aDataSize[] = {"8位","7位","6位","5位",NULL};
 		static BYTE iDataSize[] = {8,7,6,5};
 
-		for(int i=0; aBaudRate[i]; i++)
-			_baudrate_list.add(c_baudrate(iBaudRate[i],aBaudRate[i], true));
+		for (int i = 0; i < sizeof(iBaudRate) / sizeof(iBaudRate[0]); i++) {
+			_baudrate_list.add(c_baudrate(iBaudRate[i], true));
+		}
 		for(int i=0; aParity[i]; i++)
 			_parity_list.add(t_com_item(iParity[i],aParity[i]));
 		for(int i=0; aStopBit[i]; i++)
