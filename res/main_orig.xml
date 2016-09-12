@@ -80,7 +80,8 @@
 						</Vertical>
 						<!--留空-->
 						<Control />
-						<!--窗口置顶 & 简洁模式-->
+						<!--清空计数 & 窗口置顶 & 简洁模式-->
+						<Control id="IDC_CHK_CLR" height="20" inset="10,0,0,5"/>
 						<Control id="IDC_CHK_TOP" height="20" inset="10,0,0,5"/>
 						<Control id="IDC_CHECK_SIMPLE" height="20" inset="10,0,0,5"/>
 					</Vertical>

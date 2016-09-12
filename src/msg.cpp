@@ -67,6 +67,7 @@ namespace Common {
 		_send_data_format_char  = SendDataFormatChar::sdfc_kNone;
 		_recv_cur_edit          = NULL;
         _b_refresh_comport      = false;
+		_b_reset_counter        = false;
 	}
 
 	CComWnd::~CComWnd()
@@ -743,6 +744,13 @@ namespace Common {
 				return 0;
 			}
 			break;
+		// 清空计数
+		case IDC_CHK_CLR:
+			if (code == BN_CLICKED){
+				_b_reset_counter = !_b_reset_counter;
+				return 0;
+			}
+			break;
 		// 置顶 && 简洁模式
 		case IDC_CHK_TOP:
 			if (code == BN_CLICKED){
@@ -882,6 +890,12 @@ namespace Common {
 		}
 
 		::SetWindowPos(m_hWnd, topmost ? HWND_TOPMOST : HWND_NOTOPMOST, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE);
+	}
+
+	void CComWnd::switch_reset_counter(bool reset/*=false*/)
+	{
+		::CheckDlgButton(m_hWnd, IDC_CHK_CLR, reset ? BST_CHECKED : BST_UNCHECKED);
+		_b_reset_counter = reset;
 	}
 
 	void CComWnd::switch_send_data_format(bool manual/*=false*/, bool bhex/*=false*/, DWORD fmthex/*=0*/, DWORD fmtchar/*=0*/)
@@ -1154,6 +1168,9 @@ namespace Common {
                 }
 				com_update_open_btn_text();
 				_timer.stop();
+				int nRead, nWritten, nQueued;
+				_comm.get_counter(&nRead, &nWritten, &nQueued);
+				update_status("串口已关闭：接收计数:%u,发送计数:%u,等待发送:%u", nRead, nWritten, nQueued);
 				switch_auto_send();
 			}
 		}
@@ -1169,6 +1186,9 @@ namespace Common {
 				_file_data_receiver.reset_buffer();
 				_comm.begin_threads();
 				com_update_open_btn_text();
+				if (_b_reset_counter) {
+					_comm.reset_counter();
+				}
 				update_status("串口已打开!");
 				_timer.start();
 			}
@@ -1278,6 +1298,9 @@ namespace Common {
 		}
 		if (auto item = comcfg->get_key("gui.topmost")){
 			switch_window_top_most(true, item->get_bool());
+		}
+		if (auto item = comcfg->get_key("gui.autoclr")) {
+			switch_reset_counter(item->get_bool());
 		}
 
 		// 数据发送格式设置
@@ -1392,6 +1415,7 @@ namespace Common {
 		comcfg->set_key("gui.fullscreen", _b_recv_char_edit_fullscreen);
 		comcfg->set_key("gui.simplemode", !!::IsDlgButtonChecked(m_hWnd, IDC_CHECK_SIMPLE));
 		comcfg->set_key("gui.topmost", !!::IsDlgButtonChecked(m_hWnd, IDC_CHK_TOP));
+		comcfg->set_key("gui.autoclr", !!::IsDlgButtonChecked(m_hWnd, IDC_CHK_CLR));
 
 		// 数据发送格式设置
 		comcfg->set_key("comm.send.format", _b_send_data_format_hex ? "hex" : "char");

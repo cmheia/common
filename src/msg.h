@@ -141,6 +141,7 @@ namespace Common {
 
 		void switch_rich_edit_fullscreen(bool full);
 		void switch_window_top_most(bool manual=false, bool topmost = true);
+		void switch_reset_counter(bool reset = false);
 		void switch_simple_ui(bool manual=false, bool bsimple=false);
 		void switch_send_data_format(bool manual=false, bool bhex=false, DWORD fmthex=0,DWORD fmtchar=0);
 		void switch_recv_data_format(bool manual = false, bool bhex = false, DWORD fmthex = 0, DWORD fmtchar = 0);
@@ -316,5 +317,7 @@ namespace Common {
 
         // 是否需要在关闭后刷新串口列表，因为串口打开时无法修改列表，所以~
         bool                _b_refresh_comport;
+		// 打开串口时复位计数器
+		bool                _b_reset_counter;
 	};
 }

@@ -48,7 +48,6 @@ namespace Common{
 	{
 		SMART_ENSURE(::CloseHandle(_hComPort), != 0).Fatal();
 		_hComPort = NULL;
-        reset_counter();
 		_send_data.empty();
 
 		return true;

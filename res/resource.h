@@ -46,6 +46,7 @@
 #define IDC_BTN_SAVEFILE                1027
 #define IDC_BTN_STOPDISP                1029
 #define IDC_BTN_LOADFILE                1030
+#define IDC_CHK_CLR                     1031
 #define IDC_EDIT_RECV2                  1033
 #define IDC_BTN_MORE_SETTINGS           1035
 #define IDC_CTO_EDIT_READ_INTERVAL      1036
