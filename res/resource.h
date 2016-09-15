@@ -15,9 +15,7 @@
 #define IDR_101                         134
 #define IDR_102                         135
 #define IDR_RCDATA2                     137
-#define MENU_EDIT_CONTEXTMENU           138
 #define MENU_RICHEDIT_CONTEXTMENU       138
-#define IDD_DIALOG2                     139
 #define IDD_TEMPLATE                    139
 #define IDR_MENU_SENDCMD                140
 #define IDC_BTN_SEND                    1000

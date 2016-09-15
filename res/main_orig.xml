@@ -2,9 +2,9 @@
 	<Font name="微软雅黑" size="12" default="true" />
 	<Font name="Consolas" size="12" />
 	<Vertical>
-		<Vertical inset="5,5,5,5">
+		<Vertical inset="0,0,0,0">
 			<Container>
-				<Horizontal name="main_wnd">
+                <Horizontal name="main_wnd" inset="5,5,5,5">
 					<!--最左边的整个竖栏-->
 					<Vertical width="110">
 						<!--上部分-->
@@ -40,7 +40,7 @@
 							<!--GroupBox-->
 							<Control id="MAINSTATIC_RECV_FORMAT"/>
 							<!--Options-->
-							<Vertical inset="10,15,5,5">
+							<Vertical inset="10,16,5,5">
 								<Control id="IDC_RADIO_RECV_HEX" />
 								<Control id="IDC_RADIO_RECV_CHAR" />
 							</Vertical>
@@ -52,13 +52,13 @@
 							<Control id="MAINSTATIC_SEND_FORMAT"/>
 							<!--Options-->
 							<Horizontal>
-								<Vertical inset="10,15,5,5">
+								<Vertical inset="10,16,5,5">
 									<Control id="IDC_RADIO_SEND_HEX"/>
 									<Control id="IDC_RADIO_SEND_CHAR"/>
 								</Vertical>
 								<Vertical width="30" inset="5,10,5,0">
 									<Control />
-									<Control id="IDC_BTN_SEND_FMT_CONFIG" height="20"/>
+									<Control id="IDC_BTN_SEND_FMT_CONFIG" height="30"/>
 									<Control />
 								</Vertical>
 							</Horizontal>
@@ -88,38 +88,38 @@
 					<!--右边整个部分-->
 					<Vertical>
 						<!--数据接收显示窗口-->
-						<Container name="recv_wnd" inset="10,5,5,5" minheight="200">
+						<Container name="recv_wnd" inset="10,0,1,0" minheight="200">
 							<Control id="IDC_EDIT_RECV" name="edit_recv_hex" font="1" visible="false"/>
 							<Control id="IDC_EDIT_RECV2" name="edit_recv_char"/>
 						</Container>
 						<!--中间的按钮-->
-						<Horizontal name="recv_btns" height="30" inset="10,0,3,0">
+						<Horizontal name="recv_btns" height="30" inset="9,5,3,0">
 							<Control id="IDC_BTN_COPY_RECV" />
 							<Control id="IDC_BTN_CLR_RECV" />
 							<Control id="IDC_BTN_STOPDISP" />
 							<Control id="IDC_BTN_SAVEFILE" />
-							<Control id="IDC_BTN_HELP" width="60"/>
+							<Control id="IDC_BTN_HELP"/>
 						</Horizontal>
 						<!--发送数据窗口-->
-						<Container name="send_wnd" height="80" inset="10,5,5,5">
+						<Container name="send_wnd" height="80" inset="10,5,1,0">
 							<Control id="IDC_EDIT_SEND" font="1"/>
 						</Container>
 						<!--下边部分-->
-						<Horizontal name="send_btns" height="60" inset="10,0,0,0">
+						<Horizontal name="send_btns" height="60" inset="9,0,0,0">
 							<!--左边-->
 							<Vertical>
 								<!--下边按钮-->
-								<Horizontal height="36" inset="0,3,0,3">
+								<Horizontal inset="0,3,0,3">
 									<Control id="IDC_BTN_COPY_SEND" />
 									<Control id="IDC_BTN_CLR_SEND" />
 									<Control id="IDC_BTN_CLR_COUNTER" />
 									<Control id="IDC_BTN_LOADFILE" />	
 								</Horizontal>
 								<!--状态栏-->
-								<Control id="IDC_STATIC_STATUS" height="24"/>
+								<Control id="IDC_STATIC_STATUS" height="24" inset="1,0,0,0"/>
 							</Vertical>
 							<!--发送按钮-->
-							<Control id="IDC_BTN_SEND" width="60" inset="10,5,0,5"/>
+							<Control id="IDC_BTN_SEND" width="60" inset="5,3,0,0"/>
 						</Horizontal>
 					</Vertical>
 				</Horizontal>
