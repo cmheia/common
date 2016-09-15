@@ -244,7 +244,9 @@ BEGIN
         MENUITEM "删除(&D)",                      ID_EDITCONTEXTMENU_DELETE
         MENUITEM "全选(&A)",                      ID_EDITCONTEXTMENU_SELALL
         MENUITEM SEPARATOR
-        MENUITEM "清屏(&R)\t鼠标中键",                ID_EDITCONTEXTMENU_CLRSCR
+        MENUITEM "清屏(&R)\t鼠标中键/F9",         ID_EDITCONTEXTMENU_CLRSCR
+        MENUITEM SEPARATOR
+        MENUITEM "串口(&W)",                      ID_EDITCONTEXTMENU_OPENCLOSE
         MENUITEM SEPARATOR
         MENUITEM "全屏(&F)\tF11",                 ID_EDITCONTEXTMENU_FULLSCREEN, CHECKED
         MENUITEM SEPARATOR

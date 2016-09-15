@@ -119,7 +119,7 @@
 #define MENU_SENDCMD_COLLAPSEALL        40049
 #define ID_Menu                         40050
 #define ID_EDITCONTEXTMENU_CLRSCR       40051
-#define ID_Menu40052                    40052
+#define ID_EDITCONTEXTMENU_OPENCLOSE    40052
 #define ID_EDITCONTEXTMENU_CALC         40053
 #define ID_EDITCONTEXTMENU_CUSTOM_CMD   40054
 

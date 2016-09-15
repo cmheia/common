@@ -384,6 +384,8 @@ namespace Common {
 			bool breadonly = _recv_char_edit.is_read_only();
 			::EnableMenuItem(hSubMenu0, ID_EDITCONTEXTMENU_PASTE, (!breadonly && ::IsClipboardFormatAvailable(CF_TEXT)) ? MF_ENABLED : MF_DISABLED | MF_GRAYED);
 
+			::ModifyMenu(hSubMenu0, ID_EDITCONTEXTMENU_OPENCLOSE, MF_STRING | MF_BYCOMMAND, ID_EDITCONTEXTMENU_OPENCLOSE, (_comm.is_opened() ? "¹Ø±Õ(&W)\tF12" : "´ò¿ª(&W)\tF12"));
+
 			::CheckMenuItem(hSubMenu0, ID_EDITCONTEXTMENU_FULLSCREEN, _b_recv_char_edit_fullscreen ? MF_CHECKED : MF_UNCHECKED);
 
 			::TrackPopupMenu(hSubMenu0, TPM_LEFTALIGN | TPM_LEFTBUTTON, x, y, 0, *this, nullptr);
@@ -503,6 +505,7 @@ namespace Common {
 		case ID_EDITCONTEXTMENU_PASTE:		_recv_char_edit.do_paste(); break;
 		case ID_EDITCONTEXTMENU_DELETE:		_recv_char_edit.do_delete(); break;
 		case ID_EDITCONTEXTMENU_CLRSCR:		_recv_char_edit.clear(); break;
+		case ID_EDITCONTEXTMENU_OPENCLOSE:	com_openclose(); break;
 		case ID_EDITCONTEXTMENU_SELALL:		_recv_char_edit.do_sel_all(); break;
 		case ID_EDITCONTEXTMENU_FULLSCREEN:	
 			_b_recv_char_edit_fullscreen = !_b_recv_char_edit_fullscreen;
@@ -1227,6 +1230,14 @@ namespace Common {
 		else if (uMsg == WM_KEYUP) {
 			if (wParam == VK_F8) {
 				::ShellExecute(m_hWnd, "open", _custom_cmd.c_str(), NULL, NULL, SW_SHOWNORMAL);
+				return 0;
+			}
+			if (wParam == VK_F9) {
+				editor_recv_char()->clear();
+				return 0;
+			}
+			if (wParam == VK_F12) {
+				com_openclose();
 				return 0;
 			}
 		}
