@@ -76,6 +76,7 @@ namespace Common {
     private:
         CommandNotifier _command_notifier;
         UINT            _command_message;
+		std::string     _custom_cmd;
 
 	private:
 		enum PrivateMessage{

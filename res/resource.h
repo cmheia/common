@@ -91,7 +91,7 @@
 #define MENU_MORE_DRIVER                40006
 #define MENU_MORE_PINCTRL               40007
 #define MENU_OTHER_DEVICEMGR            40008
-#define ID_POPUPMENU_40009              40009
+#define MENU_OTHER_CUSTOM_CMD           40009
 #define ID_POPUPMENU_40011              40011
 #define MENU_OTHER_STR2HEX              40012
 #define ID_POPUPMENU_40013              40013
@@ -121,13 +121,14 @@
 #define ID_EDITCONTEXTMENU_CLRSCR       40051
 #define ID_Menu40052                    40052
 #define ID_EDITCONTEXTMENU_CALC         40053
+#define ID_EDITCONTEXTMENU_CUSTOM_CMD   40054
 
 // Next default values for new objects
 // 
 #ifdef APSTUDIO_INVOKED
 #ifndef APSTUDIO_READONLY_SYMBOLS
 #define _APS_NEXT_RESOURCE_VALUE        141
-#define _APS_NEXT_COMMAND_VALUE         40054
+#define _APS_NEXT_COMMAND_VALUE         40055
 #define _APS_NEXT_CONTROL_VALUE         1091
 #define _APS_NEXT_SYMED_VALUE           101
 #endif

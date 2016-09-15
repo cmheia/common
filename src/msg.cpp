@@ -490,6 +490,7 @@ namespace Common {
 		case MENU_OTHER_CALC:		::ShellExecute(m_hWnd, "open", "calc", NULL, NULL, SW_SHOWNORMAL);	break;
 		case MENU_OTHER_NOTEPAD:	::ShellExecute(m_hWnd, "open", "notepad", NULL, NULL, SW_SHOWNORMAL); break;
 		case MENU_OTHER_DEVICEMGR:	::ShellExecute(m_hWnd, "open", "devmgmt.msc", NULL, NULL, SW_SHOWNORMAL); break;
+		case MENU_OTHER_CUSTOM_CMD:	::ShellExecute(m_hWnd, "open", _custom_cmd.c_str(), NULL, NULL, SW_SHOWNORMAL);	break;
 
 		case MENU_OTHER_MONITOR:
 		case MENU_OTHER_DRAW:
@@ -508,6 +509,7 @@ namespace Common {
 			switch_rich_edit_fullscreen(_b_recv_char_edit_fullscreen); 
 			break;
 		case ID_EDITCONTEXTMENU_CALC:		::ShellExecute(m_hWnd, "open", "calc", NULL, NULL, SW_SHOWNORMAL);	break;
+		case ID_EDITCONTEXTMENU_CUSTOM_CMD:	::ShellExecute(m_hWnd, "open", _custom_cmd.c_str(), NULL, NULL, SW_SHOWNORMAL);	break;
 
         case MENU_MORE_PINCTRL:
         {
@@ -1222,6 +1224,12 @@ namespace Common {
 			}
 			return 0;
 		}
+		else if (uMsg == WM_KEYUP) {
+			if (wParam == VK_F8) {
+				::ShellExecute(m_hWnd, "open", _custom_cmd.c_str(), NULL, NULL, SW_SHOWNORMAL);
+				return 0;
+			}
+		}
 		else if (uMsg == WM_KEYDOWN){
 			if (wParam == VK_F11){
 				_b_recv_char_edit_fullscreen = !_b_recv_char_edit_fullscreen;
@@ -1264,6 +1272,9 @@ namespace Common {
 				SendMessage(WM_SETICON, ICON_SMALL, LPARAM(hIcon));
 				SendMessage(WM_SETICON, ICON_BIG, LPARAM(hIcon));
 			}
+		}
+		if (auto item = comcfg->get_key("app.customcmd")) {
+			_custom_cmd = item->val();
 		}
 		if (auto item = comcfg->get_key("gui.font")){
 			std::string face;

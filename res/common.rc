@@ -216,6 +216,7 @@ BEGIN
         MENUITEM "计算器",                         MENU_OTHER_CALC
         MENUITEM "记事本",                         MENU_OTHER_NOTEPAD
         MENUITEM "设备管理器",                       MENU_OTHER_DEVICEMGR
+        MENUITEM "自定义命令",                       MENU_OTHER_CUSTOM_CMD
         MENUITEM SEPARATOR
         MENUITEM "帮助/关于",                       MENU_OTHER_HELP
         MENUITEM "检查软件新版本",                     MENU_OTHER_NEWVERSION, GRAYED
@@ -248,6 +249,7 @@ BEGIN
         MENUITEM "全屏(&F)\tF11",                 ID_EDITCONTEXTMENU_FULLSCREEN, CHECKED
         MENUITEM SEPARATOR
         MENUITEM "计算器",                         ID_EDITCONTEXTMENU_CALC
+        MENUITEM "自定义命令(&W)\tF8",            ID_EDITCONTEXTMENU_CUSTOM_CMD
     END
 END
 
