@@ -255,6 +255,11 @@ namespace Window{
 		SMART_ENSURE(SendMessage(EM_SETCHARFORMAT, SCF_ALL, LPARAM(&cf)), != 0).Warning();
 	}
 
+	void c_rich_edit::set_default_wnd_bgcolor(COLORREF bg)
+	{
+		SMART_ENSURE(SendMessage(EM_SETBKGNDCOLOR, (WPARAM)0, (LPARAM)(COLORREF)bg), != 0).Warning();
+	}
+
     void c_rich_edit::limit_text(int sz) {
         // https://msdn.microsoft.com/en-us/library/windows/desktop/bb761647(v=vs.85).aspx
         SendMessage(EM_EXLIMITTEXT, 0, sz == -1 ? 0x7ffffffe : sz);

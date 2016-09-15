@@ -969,7 +969,7 @@ namespace Common {
 
 	void CComWnd::switch_auto_send(bool manual, bool bauto, int interval)
 	{
-		const int interval_min = 50;
+		const int interval_min = 20;
 		const int interval_max = 60000;
 		const int interval_default = 1000;
 
@@ -984,33 +984,27 @@ namespace Common {
 			::EnableWindow(GetDlgItem(m_hWnd, IDC_EDIT_DELAY), bauto && valid && _comm.is_opened() ? FALSE : TRUE);
 			::SetDlgItemInt(m_hWnd, IDC_EDIT_DELAY, valid ? interval : interval_default, FALSE);
 			if (!valid){
-				msgbox(MB_ICONEXCLAMATION, nullptr, "自动发送时间不合法, 已设置为默认值!");
-			}
-			else{
-				_auto_send_timer.set_period(interval);
+				msgbox(MB_ICONEXCLAMATION, "无效设置", "自动发送时间仅限于[%d,%d], 已设置为默认值 %d !", interval_min, interval_max, interval_default);
 			}
 		}
 		else{
-			bool bStart = !!::IsDlgButtonChecked(m_hWnd, IDC_CHK_AUTO_SEND);
-			if(_comm.is_opened()){
-				if (bStart){
-					BOOL bTranslated;
-					int ti = ::GetDlgItemInt(m_hWnd, IDC_EDIT_DELAY, &bTranslated, FALSE);
-					if (!bTranslated || !(ti >= interval_min && ti <= interval_max)){
-						msgbox(MB_ICONEXCLAMATION, nullptr, "自动发送时间设置有误!");
-						return;
-					}
-
+			if (::IsDlgButtonChecked(m_hWnd, IDC_CHK_AUTO_SEND)) {
+				BOOL bTranslated;
+				int ti = ::GetDlgItemInt(m_hWnd, IDC_EDIT_DELAY, &bTranslated, FALSE);
+				if (!bTranslated || !(ti >= interval_min && ti <= interval_max)) {
+					msgbox(MB_ICONEXCLAMATION, "无效设置", "自动发送时间仅限于[%d,%d]!", interval_min, interval_max);
+					::CheckDlgButton(m_hWnd, IDC_CHK_AUTO_SEND, BST_UNCHECKED);
+					return;
+				}
+				if (_comm.is_opened()) {
 					::EnableWindow(GetDlgItem(m_hWnd, IDC_EDIT_DELAY), FALSE);
 					_auto_send_timer.set_period(ti);
 					_auto_send_timer.start();
-				}
-				else{
+				} else {
 					::EnableWindow(GetDlgItem(m_hWnd, IDC_EDIT_DELAY), TRUE);
 					_auto_send_timer.stop();
 				}
-			}
-			else{
+			} else {
 				::EnableWindow(GetDlgItem(m_hWnd, IDC_EDIT_DELAY), TRUE);
 				_auto_send_timer.stop();
 			}
@@ -1210,7 +1204,6 @@ namespace Common {
 				int nRead, nWritten, nQueued;
 				_comm.get_counter(&nRead, &nWritten, &nQueued);
 				update_status("串口已关闭：接收计数:%u,发送计数:%u,等待发送:%u", nRead, nWritten, nQueued);
-				switch_auto_send();
 			}
 		}
 		else{
@@ -1302,6 +1295,17 @@ namespace Common {
 			*sz = atoi(&s[pos + 1]);
 		};
 
+		auto string_to_rgb = [](const std::string & s, COLORREF *color) {
+			if (!s.length()) {
+				return -1;
+			}
+
+			int rgb[3];
+			int ret = sscanf(s.c_str(), "%d,%d,%d", rgb, rgb + 1, rgb + 2);
+			*color = RGB(rgb[0], rgb[1], rgb[2]);
+			return ret;
+		};
+
 		auto set_ctrl_font = [=](const char* ctrl, const std::string& face, int sz){
 			SdkLayout::CControlUI* pRE = m_layout->FindControl(ctrl);
 			HFONT hFont = m_layout->GetManager()->AddFont(face.c_str(), sz, false, false, false);
@@ -1340,10 +1344,20 @@ namespace Common {
 			set_ctrl_font("edit_recv_hex", face, sz);
 		}
 		if (auto item = comcfg->get_key("gui.recv.edit.char.fgcolor")){
-
+			std::string params = item->val();
+			COLORREF color;
+			if (string_to_rgb(item->val(), &color)) {
+				editor_recv_char()->set_default_text_fgcolor(color);
+			}
 		}
 		if (auto item = comcfg->get_key("gui.recv.edit.char.bgcolor")){
 
+		}
+		if (auto item = comcfg->get_key("gui.recv.edit.window.bgcolor")) {
+			COLORREF color;
+			if (string_to_rgb(item->val(), &color)) {
+				editor_recv_char()->set_default_wnd_bgcolor(color);
+			}
 		}
 		if (auto item = comcfg->get_key("gui.fullscreen")){
 			_b_recv_char_edit_fullscreen = item->get_bool();
