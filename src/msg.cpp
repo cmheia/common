@@ -2,6 +2,7 @@
 
 #include "../res/resource.h"
 
+#include <Strsafe.h>
 #include "about.h"
 #include "asctable.h"
 #include "SendCmd.h"
@@ -191,7 +192,6 @@ namespace Common {
 		layout_resize(m_layout, NULL);
 
 		// 界面元素
-		::SendMessage(_hCP, CB_SETDROPPEDWIDTH, 350, 0);
 		::SetDlgItemText(m_hWnd, IDC_STATIC_TIMER, "00:00:00");
 		
 		// 界面预定义
@@ -416,8 +416,25 @@ namespace Common {
 			ud.hwnd = ups[i].hwnd;
 			ComboBox_ResetContent(ud.hwnd);
 			ups[i].plist->callback(&CComWnd::com_udpate_list_callback, &ud);
-			if (ComboBox_GetCount(ud.hwnd) > 0){
+			int count = ComboBox_GetCount(ud.hwnd);
+			if (count > 0) {
 				ComboBox_SetCurSel(ud.hwnd, 0);
+				// 自动调整下拉框宽度
+				char str[1024];
+				int nWidth = 0;
+				size_t pcch;
+				SIZE sz;
+				HDC hdc = GetWindowDC(ud.hwnd);
+				for (int index = 0; index < count; index++) {
+					ComboBox_GetLBText(ud.hwnd, index, str);
+					if (SUCCEEDED(StringCchLength(str, sizeof(str), &pcch))) {
+						GetTextExtentPoint32(hdc, str, pcch, &sz);
+						nWidth = max(nWidth, sz.cx);
+					}
+				}
+				ReleaseDC(ud.hwnd, hdc);
+				::SendMessage(ud.hwnd, CB_SETDROPPEDWIDTH, nWidth, 0);
+				debug_out(("CB_SETDROPPEDWIDTH=%d\n", nWidth));
 			}
 		}
 
@@ -476,8 +493,25 @@ namespace Common {
 		ud.hwnd = _hCP;
 		ComboBox_ResetContent(ud.hwnd);
 		list->callback(&CComWnd::com_udpate_list_callback, &ud);
-		if (ComboBox_GetCount(ud.hwnd) > 0){
+		int count = ComboBox_GetCount(ud.hwnd);
+		if (count > 0){
 			ComboBox_SetCurSel(ud.hwnd, 0);
+			// 自动调整下拉框宽度
+			char str[1024];
+			int nWidth = 0;
+			size_t pcch;
+			SIZE sz;
+			HDC hdc = GetWindowDC(ud.hwnd);
+			for (int index = 0; index < count; index++) {
+				ComboBox_GetLBText(ud.hwnd, index, str);
+				if (SUCCEEDED(StringCchLength(str, sizeof(str), &pcch))) {
+					GetTextExtentPoint32(hdc, str, pcch, &sz);
+					nWidth = max(nWidth, sz.cx);
+				}
+			}
+			ReleaseDC(ud.hwnd, hdc);
+			::SendMessage(ud.hwnd, CB_SETDROPPEDWIDTH, nWidth, 0);
+			debug_out(("CB_SETDROPPEDWIDTH=%d\n", nWidth));
 		}
 	}
 
