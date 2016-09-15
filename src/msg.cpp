@@ -255,6 +255,7 @@ namespace Common {
 		// 欢迎语
 		update_status("欢迎使用 Common串口调试工具! Enjoy! :-)");
 
+		com_lock_ui_panel(false);
 		return 0;
 	}
 
@@ -608,7 +609,9 @@ namespace Common {
 		}
 		case IDC_BTN_SEND:
 			if (code == BN_CLICKED){
-				com_do_send(false);
+				if (_comm.is_opened()) {
+					com_do_send(false);
+				}
 				return 0;
 			}
 			break;
@@ -822,6 +825,7 @@ namespace Common {
 		for (int i = 0; i < sizeof(ids) / sizeof(ids[0]); i++){
 			::EnableWindow(ids[i], lock ? FALSE : TRUE);
 		}
+		::EnableWindow(::GetDlgItem(m_hWnd, IDC_BTN_SEND), lock);
 	}
 
 	bool CComWnd::com_try_close(bool b_thread_started)
