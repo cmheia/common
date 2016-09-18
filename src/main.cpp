@@ -34,6 +34,31 @@ int CALLBACK WinMain(HINSTANCE hInstance,HINSTANCE hPrevInstance,LPSTR lpCmdLine
 	freopen("CONIN$", "r", stdin);
 	freopen("CONOUT$", "w", stdout);
 	freopen("CONOUT$", "w", stderr);
+	do {
+		HANDLE hStdout;
+		BOOL ok;
+
+		hStdout = GetStdHandle(STD_OUTPUT_HANDLE);
+
+		CONSOLE_SCREEN_BUFFER_INFO bInfo; 
+		GetConsoleScreenBufferInfo(hStdout, &bInfo);
+
+		COORD coord;
+		coord.X = GetSystemMetrics(SM_CXMIN) + 50;
+		coord.Y = GetSystemMetrics(SM_CYMIN);
+		// https://msdn.microsoft.com/en-us/library/windows/desktop/ms686044(v=vs.85).aspx
+		ok = SetConsoleScreenBufferSize(hStdout, coord);
+		printf("SM_C[XY]MIN = {%d, %d}\n", coord.X, coord.Y);
+
+		SMALL_RECT rc;
+		rc.Left = 0;
+		rc.Top = 0;
+		rc.Right = coord.X - 1;
+		rc.Bottom = coord.Y - 1;
+
+		// https://msdn.microsoft.com/en-us/library/windows/desktop/ms686125(v=vs.85).aspx
+		ok = SetConsoleWindowInfo(hStdout, ok, &rc);
+	} while (0);
 #endif
 	debug_out(("程序已运行\n"));
 
