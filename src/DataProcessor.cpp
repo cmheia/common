@@ -476,10 +476,600 @@ namespace Common{
 	}
 
 	//////////////////////////////////////////////////////////////////////////
+	bool c_unicode_string_processor::process_some(bool follow, const unsigned char* ba, int cb, int* pn)
+	{
+		debug_printll("follow:%d, glance:%X, len:%d", follow, *ba, cb);
+		typedef union _tag_u8_mem {
+			uint64_t mem;
+			struct _tag_u8_bytes {
+				unsigned char str[6 + 1];
+			} u8;
+		} u8_mem;
+
+#if 0
+		if (follow) {
+			int n = 1;
+			_richedit->append_text(u8->u8.str, CP_UTF8);
+
+			*pn = n;
+			return false;
+		}
+		else {
+		}
+#endif
+#if 1
+		typedef enum {
+			UTF8_OK,
+			BROKEN_SEQUENCE, // miss following byte(s)
+			INVALID_LEAD,
+			INCOMPLETE_SEQUENCE, // lack of byte(s) to verify following byte(s). only use in is_stream_utf8_compliant()
+			OVERLONG_SEQUENCE, // combine to INVALID_LEAD
+			INVALID_CODE_POINT, // not detect
+			UTF8_UNKNOW
+		} utf_error;
+#define is_valid_lead(ch) (((ch & 0x80) == 0) || (character_depth(ch) > 1 && character_depth(ch) < 7))
+
+		// return value
+		// 0    : ascii						-> valid lead (no following byte)
+		// 1    : UTF-8 following byte		-> invalid lead (following byte)
+		// 2 ~ 6: UTF-8 character length	-> valid lead (have following byte)
+		auto character_depth = [](const unsigned char x) {
+			if ((x & 0x80) == 0) { //if the left most bit is 0 return 0
+				return 0;
+			}
+
+			// we don't need to test the left most bit because it was tested above.
+			// we should start by testing the second left most bit
+			int count;
+			for (count = 1; count < 6; count++) { // count: 1 2 3 4 5
+				char ch = (x >> (7 - count)) & 0x01; // 7 - count: 6 5 4 3 2
+				if (ch == 0) {
+					return count;
+				}
+			}
+			return count;
+		};
+
+		// return value
+		// offset of last valid byte in input stream
+		auto is_stream_utf8_compliant = [&character_depth,&follow](const unsigned char *stream, int len, utf_error& err) {
+			int following_byte_count = 0; // how many following byte(s) should this UTF-8 character have
+			int index = 0; // processed count
+			int distance_to_lead = 0;
+
+			if (len < 1) {
+				debug_puts("stream length is 0");
+				err = UTF8_UNKNOW;
+				return 0;
+			}
+			err = UTF8_OK;
+
+			do {
+				int is_not_ascii = character_depth(stream[index]);
+
+				if (following_byte_count > 0) { // we expect some byte(s) to form a valid codepoint(s)
+					distance_to_lead++;
+					if (is_not_ascii == 1) { // what we expect was founded
+						following_byte_count--; // Cool, we found next code point, decrease count
+						if (0 == following_byte_count) {
+							err = UTF8_OK; // finally we found a valid codepoint(s)
+						}
+						else {
+							//err = INCOMPLETE_SEQUENCE; // already done when we found the lead
+						}
+					}
+					else {
+						//if (is_not_ascii == 0) {
+						// The code point ended early
+						err = BROKEN_SEQUENCE; // valid following byte is missing
+						/*
+						 * character length
+						 * LEAD [in]valid byte
+						 * init following_byte_count (character length - 1)
+						 * except byte count (following_byte_count)
+						 * distance_to_lead
+						 * index -= 1; // 2+ : Li+    : 1+ : 1+ : 1
+						 * index -= 2; // 3+ : Lvi+   : 2+ : 1+ : 2
+						 * index -= 3; // 4+ : Lvvi+  : 3+ : 1+ : 3
+						 * index -= 4; // 5+ : Lvvvi+ : 4+ : 1+ : 4
+						 * index -= 5; // 6  : Lvvvvi : 5  : 1  : 5
+						 */
+						index -= distance_to_lead; // let down stream handler know where is last valid byte(first invalid codepoint)
+						// index -> invalid lead
+						break; // we found ascii in a UTF-8 code point location
+					}
+				}
+				else if (following_byte_count == 0) {
+					if (is_not_ascii == 0) {
+						// this is an ascii character
+						// do nothing.
+						//err = UTF8_OK;
+					}
+					else if (is_not_ascii == 1) { // valid lead is missing. this is a UTF-8 following byte
+						//if (follow) { // 前面有缓存, 此处应该拿来用?
+						//	err = INCOMPLETE_SEQUENCE;
+						//	index++; // patch
+						//	break;
+						//}
+						err = INVALID_LEAD; // this should never happen, the beginning of a UTF-8 should begine with a min of 2
+						// index -> invalid lead
+						break;
+					}
+					else {
+						// valid lead. this codepoint should be [is_not_ascii] depth.
+						// so next [is_not_ascii - 1] byte(s) must be UTF-8 following byte
+						following_byte_count = is_not_ascii - 1; //This code point count is inclusive of this byte
+						err = INCOMPLETE_SEQUENCE; // don't return! just mark we expect some byte(s) to form a valid codepoint
+						distance_to_lead = 0;
+						// index -> valid lead
+						// 如果此处之后 false == (++index < len) 导致退出循环, 需要回退 index 使之指向 lead
+					}
+				}
+				else {
+					debug_printl("we should never come here! index=%d, following_byte_count=%d", index, following_byte_count);
+					err = UTF8_UNKNOW;
+					break;
+				}
+			} while (++index < len);
+#if 0
+			for (; pos < len; pos++) { // search through input byte stream
+				int is_not_ascii = character_depth(bytes[pos]);
+
+				if (char_depth > 0) { // we expect some byte(s) to form a valid UTF-8 character
+					if (is_not_ascii == 0) { // The code point ended early
+						err = NOT_ENOUGH_ROOM; // valid sequence byte is missing
+						break; // we found ascii in a UTF-8 code point location
+					}
+					else { // what we expect was founded
+						char_depth--; // Cool, we found next code point, decrease count
+					}
+				}
+				else if (char_depth == 0) {
+					if (is_not_ascii == 0) {
+						// this is an ascii character
+						// do nothing. this is goodness, the compile will optimize this out
+					}
+					else if (is_not_ascii == 1) { // valid lead is missing. this is a UTF-8 sequence byte
+						err = INVALID_LEAD; // this should never happen, the beginning of a UTF-8 should begine with a min of 2
+						break;
+					}
+					else {
+						// valid lead. this UTF-8 character should be [is_not_ascii] depth.
+						// so next [is_not_ascii - 1] byte(s) must be UTF-8 sequence byte
+						char_depth = is_not_ascii - 1; //This code point count is inclusive of this byte
+					}
+				}
+				else {
+					debug_printl("we should never be here! pos=%d, char_depth=%d", pos, char_depth);
+					err = UTF8_UNKNOW;
+					break;
+				}
+			}
+#endif
+			if (err == INCOMPLETE_SEQUENCE) {
+				index -= (distance_to_lead + 1); // 第一个数据报的孤独的 lead 应该到这里
+				// pos -> invalid lead
+			}
+			// index -> invalid lead
+			return index;
+		};
+#if 0
+		auto handle_invalid_bytes_untile_valid_lead = [&character_depth, &this->_richedit](const unsigned char* stream) {
+#define MAX_INVALID_BYTE_PRINT_BUFFER 4096
+#define MAX_INVALID_BYTE_PRINT_COUNT  ((MAX_INVALID_BYTE_PRINT_BUFFER - 1) / 4)
+			char print_buffer[MAX_INVALID_BYTE_PRINT_BUFFER];
+			char *current_buffer = print_buffer;
+
+			int i = 0;
+			do { // handle invalid byte(s) untile we meet a valid lead
+					// the first byte is invalid so we can use do{}while() loop
+				int printed = sprintf(current_buffer, "<%02X>", stream + i);
+				if (printed != -1) {
+					current_buffer += printed;
+				}
+				else {
+					debug_printll("sprintf failed, %d, %p", i, current_buffer);
+#ifdef _DEBUG
+					continue; // incase of sprintf failed
+#endif
+				}
+				i++;
+			} while (!is_valid_lead(stream[i]) && i < MAX_INVALID_BYTE_PRINT_COUNT);
+			current_buffer[i] = 0; // null-terminated
+			current_buffer = print_buffer; // reset buffer pointer
+			_richedit->append_text(print_buffer, CP_UTF8);
+			return count;
+		};
+#endif
+
+		bool ret = false;
+		int processed = 0;
+		unsigned char* stream = (unsigned char*)ba;
+#define MAX_INVALID_BYTE_PRINT_BUFFER 4096
+#define MAX_INVALID_BYTE_PRINT_COUNT  ((MAX_INVALID_BYTE_PRINT_BUFFER - 1) / 4)
+		char print_buffer[MAX_INVALID_BYTE_PRINT_BUFFER];
+		char *current_buffer = print_buffer;
+
+		if (follow) { // 前面有缓存, 此处应优先处理
+			debug_printll("buffered_count=%d", buffered_count);
+			utf_error status;
+			u8_mem *u8 = static_cast<u8_mem *>(static_cast<void*>(&decode_buffer));
+			int pos = is_stream_utf8_compliant(u8->u8.str, buffered_count, status);
+			switch (status) {
+
+			case BROKEN_SEQUENCE: // miss following byte(s)
+				// 接下来检索此次输入的序列, 看头部是不是following byte, 能不能凑成一个 UTF-8 字符
+				debug_printll("BROKEN_SEQUENCE buffer pos=%d", pos);
+				break;
+
+			case INVALID_LEAD:
+				debug_printll("INVALID_LEAD buffer pos=%d", pos);
+				break;
+
+			case INCOMPLETE_SEQUENCE:
+				debug_printll("INCOMPLETE_SEQUENCE buffer pos=%d", pos);
+				do {
+					int unprocessed = cb - processed;
+					int i = 0;
+					do {
+						// handle invalid byte(s) untile we meet a valid lead or '\0'
+						// the first byte is valid lead
+						u8->u8.str[i + buffered_count] = stream[i];
+						i++;
+					} while (!is_valid_lead(stream[i]) && i < unprocessed);
+					//memcpy(u8->u8.str + buffered_count, stream, unprocessed);
+					buffered_count += i;
+					processed += i;
+					stream += i;
+					cb -= i;
+					debug_printll("%d bytes eaten, new cb:%d", i, cb);
+				} while (0);
+				// is valid codepoint?
+				//int is_not_ascii = character_depth(u8->u8.str);
+				pos = is_stream_utf8_compliant(u8->u8.str, buffered_count, status);
+				if (UTF8_OK != status) {
+					debug_printll("codepoint not buffered, remain %d bytes", cb);
+					ret = true; // request to be next handle
+					break;
+				}
+				else {
+					debug_puts("jump to case UTF8_OK");
+				}
+
+			case UTF8_OK: // 理想状况是缓存的字节刚好凑成一个 UTF-8 字符
+				debug_printll("codepoint buffered, remain %d bytes", cb);
+				_richedit->append_text((const char*)u8->u8.str, CP_UTF8);
+				reset_buffer();
+				break;
+
+			case UTF8_UNKNOW:
+				debug_puts("UTF8_UNKNOW buffer");
+				break;
+			}
+		}
+
+		do {
+			if (0 == cb) {
+				debug_printll("buffer eaten %d", processed);
+				break;
+			}
+			utf_error status;
+			int pos = is_stream_utf8_compliant(stream, cb - processed, status);
+
+			switch (status) {
+#if 0
+			case INVALID_LEAD:
+				// invalid lead, byte*, valid lead
+				if (pos == 0) { // occur at first byte
+					int i = 0;
+					do { // handle invalid byte(s) untile we meet a valid lead
+						// the first byte is invalid so we can use do{}while() loop
+						int printed = sprintf(current_buffer, "<%02X>", ba[i]);
+						if (printed != -1) {
+							current_buffer += printed;
+						}
+						else {
+							debug_printll("sprintf failed, %d, %p", i, current_buffer);
+#ifdef _DEBUG
+							continue; // incase of sprintf failed
+#endif
+						}
+						i++;
+					} while (!is_valid_lead(ba[i]) && i < MAX_INVALID_BYTE_PRINT_COUNT);
+					current_buffer[i] = 0; // null-terminated
+					current_buffer = print_buffer; // reset buffer pointer
+					_richedit->append_text(print_buffer, CP_UTF8);
+					continue; // it's time to handle valid UTF-8 character(s)
+				}
+				break;
+#endif
+			case BROKEN_SEQUENCE:
+				debug_printll("BROKEN_SEQUENCE pos=%d", pos);
+				// miss following byte(s)
+				// pos -> invalid lead
+				// [valid UTF-8 character]+, valid lead, byte* (lack of following byte), valid lead
+				// treat as invalid untile we meet next valid lead
+				// pos points to lead of broken codepoint
+				if (pos > 0) {
+					// handle leading valid codepoint(s)
+					unsigned char backup = stream[pos];
+					stream[pos] = 0;
+					_richedit->append_text((const char*)stream, CP_UTF8);
+					stream[pos] = backup;
+					processed += pos;
+					stream += pos;
+					pos = 0; // make sure later code handle invalid byte(broken codepoint)
+				}
+				debug_puts("jump to case INVALID_LEAD");
+				// don't break here!
+			case INVALID_LEAD:
+				// pos -> invalid lead
+				// invalid lead, byte*, [valid lead (from case INVALID_LEAD)]
+				// valid lead, byte*, [valid lead (from case BROKEN_SEQUENCE)] -> the leading valid lead will be treat as invalid byte
+				if (pos == 0) {
+					// handle broken codepoint
+					do {
+						int i = 0;
+						do { // handle invalid byte(s) untile we meet a valid lead
+							// the first byte is invalid so we can use do{}while() loop
+							int printed = sprintf(current_buffer, "<%02X>", stream[i]);
+							if (printed != -1) {
+								current_buffer += printed;
+							}
+							else {
+								debug_printll("sprintf failed, %d, %p", i, current_buffer);
+#ifdef _DEBUG
+								continue; // incase of sprintf failed
+#endif
+							}
+							i++;
+						} while (!is_valid_lead(stream[i]) && i < MAX_INVALID_BYTE_PRINT_COUNT && !(processed + i > cb));
+						current_buffer[i] = 0; // null-terminated
+						current_buffer = print_buffer; // reset buffer pointer
+						_richedit->append_text(print_buffer, CP_UTF8);
+						processed += i;
+						stream += i;
+						continue; // it's time to handle valid codepoint(s)
+					} while (0);
+				}
+				break;
+
+			case UTF8_OK:
+				// pos -> valid lead (from case UTF8_OK)
+				_richedit->append_text((const char*)stream, CP_UTF8);
+				processed += pos;
+				stream += pos;
+				debug_printll("perfect u8, %d bytes", cb);
+				break;
+
+			case INCOMPLETE_SEQUENCE:
+				// incomplete tail
+				debug_printll("INCOMPLETE_SEQUENCE stream pos=%d", pos);
+				if (pos > 0) {
+					// handle leading valid codepoint(s)
+					unsigned char backup = stream[pos];
+					stream[pos] = 0;
+					_richedit->append_text((const char*)stream, CP_UTF8);
+					stream[pos] = backup;
+					processed += pos;
+					stream += pos;
+					pos = 0; // make sure later code handle invalid byte(broken codepoint)
+				}
+				// buffer incomplete tail byte(s) before return
+				/*
+				 * 既然 *pn 返回的已处理字节数不等于输入的 cb 就会触发c_text_data_receiver::receive循环
+				 * 从而继续调用本函数, 那么是否可以不缓存剩余的这些字节片段呢？
+				 * *** 这里缓存未完整到达的字符应该是为了等下一条读数据消息到来后再尝试拼接在一起, 所以上面的代码需要执行拼接工作
+				 */
+				/*else if (pos == 0)*/ { // most likely when runing in low baudrate such like 9600
+					int unprocessed = cb - processed;
+					debug_printll("processed %d bytes", processed);
+#ifdef _DEBUG
+					if (unprocessed > 5) { // should be BROKEN_SEQUENCE
+						debug_puts("should be BROKEN_SEQUENCE, not INCOMPLETE_SEQUENCE");
+					}
+					else
+#endif
+					{
+						debug_printll("buffer incomplete tail %d bytes", unprocessed);
+						u8_mem *u8 = static_cast<u8_mem *>(static_cast<void*>(&decode_buffer));
+						int i = 0;
+						do {
+							// handle invalid byte(s) untile we meet a valid lead or '\0'
+							// the first byte is valid lead
+							u8->u8.str[i] = stream[i];
+							i++;
+						} while (!is_valid_lead(stream[i]) && i < unprocessed);
+						//memcpy(u8->u8.str + buffered_count, stream, unprocessed);
+						buffered_count += i;
+						processed += i;
+						//stream += i; // unnecessary, because we will break and than return
+					}
+				}
+				ret = true; // request to be next handle
+				break;
+
+			case UTF8_UNKNOW:
+				debug_puts("UTF8_UNKNOW stream");
+				break;
+			}
+		} while (0);
+
+		*pn = processed;
+		return ret;
+#endif
+#if 0
+			auto judge = [&character_depth, ba, cb](const unsigned char* stream) {
+				if ((is_valid_lead(*stream))) {
+					return INVALID_LEAD;
+				} else if (ba + cb == utf8::find_invalid(ba, ba + cb)) {
+					return UTF8_OK;
+				} else if (ba + cb == utf8::find_invalid(ba, ba + cb)) {
+					return UTF8_OK;
+				}
+			};
+
+			bool ret = false;
+			utf_error status = judge(ba);
+
+			switch (status) {
+
+			case INVALID_LEAD:
+				do {
+#define MAX_INVALID_CHAR_PRINT_BUFFER 4096
+#define MAX_INVALID_CHAR_PRINT_COUNT  ((MAX_INVALID_CHAR_PRINT_BUFFER - 1) / 4)
+					char print_buffer[MAX_INVALID_CHAR_PRINT_BUFFER];
+					char *p = print_buffer;
+					// handle invalid bytes
+					int i = 0;
+					do {
+						p += sprintf(p, "<%02X>", ba + i);
+						i++;
+					} while (!is_valid_lead(ba[i]) && i < MAX_INVALID_CHAR_PRINT_COUNT);
+					p[i] = 0;
+					_richedit->append_text(print_buffer, CP_UTF8);
+				} while (0);
+				break;
+
+			case UTF8_OK:
+				_richedit->append_text((const char*)ba, CP_UTF8);
+				*pn = cb;
+				reset_buffer();
+				debug_printll("perfect u8, %d bytes", cb);
+				break;
+
+			case NOT_ENOUGH_ROOM:
+				break;
+			case INCOMPLETE_SEQUENCE:
+				break;
+			case OVERLONG_SEQUENCE:
+				break;
+			case INVALID_CODE_POINT:
+				break;
+			}
+			return ret;
+
+			//u8->u8.len = sequence_length(*ba);
+
+			//try {
+			//	for (int i = 0; i < cb; i++) {
+			//	}
+			//	uint32_t cp = utf8::next(ba, ba + cb);
+			//} catch (std::exception* e) {
+			//}
+#endif
+#if 0
+			// Detects an invalid sequence within a UTF-8 string.
+			// Return value: an iterator pointing to the first invalid octet in the UTF-8 string.
+			unsigned char* invalid = (unsigned char*)utf8::find_invalid(ba, ba + cb);
+
+			// none were found
+			if (invalid == ba + cb) {
+				_richedit->append_text((const char*)ba, CP_UTF8);
+				*pn = cb;
+				reset_buffer();
+				debug_printll("perfect u8, %d bytes", cb);
+				return false;
+			} else {
+				// invalid [u8]
+				if (invalid == ba) {
+					//unsigned char* valid = (unsigned char*)utf8::find_valid(ba, ba + cb);
+					//try {
+					//	// 遍历输入流找到有效u8的起始位置
+					//	for (int i = 0; i < cb; i++) {
+					//		const unsigned char* start = ba + i;
+					//		uint32_t cp = utf8::next(start, ba + cb);
+					//	}
+					//} catch (const utf8::exception& utfcpp_ex) {
+					//	debug_printl("%s", utfcpp_ex.what());
+					//}
+					if (buffered_count == 0) { // new arival
+						for (int i = 0; i < cb; i++) { // 遍历输入流找到有效u8的起始位置
+							try {
+								const unsigned char* start = ba + i;
+								uint32_t cp = utf8::next(start, ba + cb);
+							}
+							catch (const utf8::exception& utfcpp_ex) {
+								debug_printl("%s", utfcpp_ex.what());
+							}
+						}
+						if (cb > 6) { // u8 char not more than 6 bytes
+							char print_buffer[4 * 6 + 1];
+							char *p = print_buffer;
+							// handle invalid bytes
+							for (int i = 0; i < ?; i++) {
+								p += sprintf(print_buffer, "<%02X>", ba + i);
+							}
+							_richedit->append_text(print_buffer, CP_UTF8);
+						}
+						// try buffer them
+						int i;
+						for (i = 0; i < cb; i++) {
+							u8->u8.str[i] = *ba;
+						}
+						buffered_count += i;
+					} else { // we have buffered bytes, try to assemble a valid u8 char
+						u8->u8.str[buffered_count++] = *ba;
+					}
+					// find first valid u8 char
+					while (0) {
+						unsigned char backup = *invalid;
+						*invalid = 0;
+						_richedit->append_text((const char*)ba, CP_UTF8);
+						*invalid = backup;
+
+						char print_buffer[16];
+						sprintf(print_buffer, "<%02X>", *invalid);
+						_richedit->append_text(print_buffer, CP_UTF8);
+					}
+				}
+				// u8 invalid [u8]
+				if (invalid == ba) {
+					if () {
+						;
+					}
+					// buffer invalid to see if we grecv it next time
+				}
+				// u8 invalid
+				;
+			}
+		}
+#endif
+#if 0
+		char buf[128];
+		int n = 0;
+
+		while (n < cb && n < sizeof(buf) - 1) {
+			buf[n] = ba[n];
+			n++;
+		}
+
+		buf[n] = '\0';
+		*pn = n;
+#endif
+#if 0
+		char buf[] = {
+			0xE5, 0x85, 0x8D, 0xE8, 0xB4, 0xB9, 0
+		};
+		_richedit->append_text(buf, CP_UTF8);
+
+		*pn = 1;// n;
+#endif
+	}
+
+	void c_unicode_string_processor::reset_buffer()
+	{
+		decode_buffer = 0;
+		buffered_count = 0;
+	}
+
+	//////////////////////////////////////////////////////////////////////////
 	void c_text_data_receiver::receive(const unsigned char* ba, int cb)
 	{
 		for (; cb > 0;){
+			debug_printll("glance:%X, len:%d", *ba, cb);
 			if (_pre_proc){// 可能处理后cb==0, 所以不管process的返回值
+				// c_*_processor::process_some 返回真才能满足上一行的 if 判断从而执行到这里
 				process(_pre_proc, true, &ba, &cb, &_pre_proc);
 				continue;
 			}
@@ -534,6 +1124,10 @@ namespace Common{
 			}
 			// 扩展ASCII(Extended ASCII / EUC)字符处理
 			else{
+				// todo: set codepage
+				process(_proc_unicode, false, &ba, &cb, &_pre_proc);
+				return;
+
 				// 当前只处理GB2312
 
 				// 非gb2312编码区
@@ -568,6 +1162,7 @@ namespace Common{
 	// 如果在处理过程中遇到错误的编码就很难显示出正确的中文了, 包括后续的字符, 可能导致一错多错
 	bool c_gb2312_data_processor::process_some(bool follow, const unsigned char* ba, int cb, int* pn)
 	{
+		debug_printll("%d, %d, %X", follow, cb, *ba);
 		// 是否继续上一次未完的处理?
 		if (follow){
 			unsigned char chs[16];

@@ -51,6 +51,7 @@ namespace Common {
 			virtual LPCTSTR GetWindowClassName() const{return "Common" RICHEDIT_CLASS;}
 			virtual bool back_delete_char(int n);
 			virtual bool append_text(const char* str);
+			virtual bool append_text(const char* str, UINT codepage);
 			virtual bool apply_linux_attributes(char* attrs);
 			virtual bool apply_linux_attribute_m(int attr);
 

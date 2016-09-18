@@ -1,11 +1,56 @@
 #pragma once
 
 #ifdef _DEBUG
-#define debug_out(x) printf##x
+#define DETAIL_PRINT 1
+
+#define _GULE_NUMBER(num) #num
+#define _GULE_STRING(string) string
+#define _DEBUG_FILE_LINE(file, line) _GULE_STRING(file) "(" _GULE_NUMBER(line) ")\t"
+#define _DEBUG_FILE_LINE_FUNC(file, line, func) _GULE_STRING(file) "(" _GULE_NUMBER(line) ")" _GULE_STRING(func) "\t"
+
+#if DETAIL_PRINT
+#	define _DEBUG_STRING_FILE_LINE _DEBUG_FILE_LINE(__FILE__, __LINE__)
+#	define _DEBUG_STRING_FILE_LINE_FUNC _DEBUG_FILE_LINE_FUNC(__FILE__, __LINE__, __FUNCTION__)
+#	define _DEBUG_STRING_FILE_LINE_FUNC_NEWL _DEBUG_FILE_LINE_FUNC(__FILE__, __LINE__, __FUNCTION__) "\n\t"
 #else
+#	define _DEBUG_STRING_FILE_LINE
+#	define _DEBUG_STRING_FILE_LINE_FUNC
+#	define _DEBUG_STRING_FILE_LINE_FUNC_NEWL
+#endif
+
+#define debug_printl(fmt, ...) printf(_DEBUG_STRING_FILE_LINE fmt "\n", __VA_ARGS__)
+#define debug_printll(fmt, ...) printf(_DEBUG_STRING_FILE_LINE_FUNC fmt "\n", __VA_ARGS__)
+#define debug_printll2(fmt, ...) printf(_DEBUG_STRING_FILE_LINE_FUNC_NEWL fmt "\n", __VA_ARGS__)
+#define debug_printf(...) printf(_DEBUG_STRING_FILE_LINE __VA_ARGS__)
+#define debug_puts(x) puts(_DEBUG_STRING_FILE_LINE_FUNC x)
+
+#define print_info(f, l) printf(_GULE_STRING(f) "(" _GULE_NUMBER(l) ")\t")
+#define debug_out(x) print_info(__FILE__, __LINE__); printf##x
+#else
+#define debug_printl(...)
+#define debug_printll(...)
+#define debug_printll2(...)
+#define debug_printf(...)
+#define debug_puts(x)
+
 #define debug_out(x) 
 #endif
 
+#define PrintLastError() do { \
+		DWORD dwErrNo = GetLastError(); \
+		LPVOID lpMsgBuf; \
+		FormatMessage(\
+			FORMAT_MESSAGE_ALLOCATE_BUFFER | \
+			FORMAT_MESSAGE_FROM_SYSTEM | \
+			FORMAT_MESSAGE_IGNORE_INSERTS, \
+			NULL, \
+			dwErrNo, \
+			MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT), \
+			(LPTSTR)&lpMsgBuf, \
+			0, NULL); \
+		debug_out((TEXT("error %d: %s\n"), dwErrNo, lpMsgBuf)); \
+		LocalFree(lpMsgBuf); \
+} while (0)
 
 //////////////////////////////////////////////////////////////////////////
 // Smart Assert

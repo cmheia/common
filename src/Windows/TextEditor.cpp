@@ -1,4 +1,5 @@
 #include "stdafx.h"
+#include "../debug.h"
 
 namespace Common{
 namespace Window{
@@ -92,6 +93,31 @@ namespace Window{
 		rng.cpMin = cch;
 		SendMessage(EM_EXSETSEL, 0, (LPARAM)&rng);
 		Edit_ReplaceSel(m_hWnd,str);
+
+		// Richedit bug: EM_SCROLLCARET will not work if a richedit gets no focus
+		// http://stackoverflow.com/questions/9757134/scrolling-richedit-without-it-having-focus
+		SendMessage(WM_VSCROLL, SB_BOTTOM);
+
+		return true;
+	}
+
+	bool c_rich_edit::append_text(const char* str, UINT codepage)
+	{
+		SETTEXTEX st = {ST_NEWCHARS | ST_SELECTION, codepage};
+		GETTEXTLENGTHEX gtl;
+		CHARRANGE rng;
+		int cch;
+
+		gtl.flags = GTL_DEFAULT;
+		gtl.codepage = codepage;
+		cch = SendMessage(EM_GETTEXTLENGTHEX, (WPARAM)&gtl);
+
+		rng.cpMax = cch;
+		rng.cpMin = cch;
+		//debug_printll("append_text %d", cch);
+		SendMessage(EM_EXSETSEL, 0, (LPARAM)&rng);
+		//((void)::SendMessage((m_hWnd), EM_REPLACESEL, 0L, (LPARAM)(LPCTSTR)(str)));
+		((void)::SendMessage((m_hWnd), EM_SETTEXTEX, (WPARAM)&st, (LPARAM)(LPCTSTR)(str)));
 
 		// Richedit bug: EM_SCROLLCARET will not work if a richedit gets no focus
 		// http://stackoverflow.com/questions/9757134/scrolling-richedit-without-it-having-focus

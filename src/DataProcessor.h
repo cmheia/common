@@ -114,6 +114,22 @@ namespace Common{
 		Window::c_rich_edit* _richedit;
 	};
 
+	class c_unicode_string_processor : public i_data_processor
+	{
+	public:
+		c_unicode_string_processor()
+			: decode_buffer(0), buffered_count(0)
+		{}
+		virtual operator i_data_processor*() { return static_cast<i_data_processor*>(this); }
+		virtual bool process_some(bool follow, const unsigned char* ba, int cb, int* pn);
+		virtual void reset_buffer();
+
+	public:
+		uint64_t decode_buffer;
+		int buffered_count;
+		Window::c_rich_edit* _richedit;
+	};
+
 	// 中文扩展ASCII字符处理 (CodePage936 compatible, EUC-CN)
 	// http://en.wikipedia.org/wiki/GB_2312
 	// http://zh.wikipedia.org/wiki/GB_2312
@@ -147,6 +163,7 @@ namespace Common{
 		virtual void reset_buffer(){
 			_pre_proc = 0;
 			_proc_ascii.reset_buffer();
+			_proc_unicode.reset_buffer();
 			_proc_escape.reset_buffer();
 			_proc_crlf.reset_buffer();
 			_proc_gb2312.reset_buffer();
@@ -155,6 +172,7 @@ namespace Common{
 			_rich_editor = edt;
 			_proc_byte._richedit = edt;
 			_proc_ascii._richedit = edt;
+			_proc_unicode._richedit = edt;
 			_proc_escape._richedit = edt;
 			_proc_crlf._richedit = edt;
 			_proc_gb2312._richedit = edt;
@@ -167,6 +185,7 @@ namespace Common{
 		c_crlf_data_processor		_proc_crlf;
 		c_escape_data_processor		_proc_escape;
 		c_ascii_data_processor		_proc_ascii;
+		c_unicode_string_processor	_proc_unicode;
 		c_gb2312_data_processor		_proc_gb2312;
 	};
 
