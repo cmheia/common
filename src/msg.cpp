@@ -212,17 +212,17 @@ namespace Common {
 		});
 
 		_window_close_handler.add([&](){
+			save_to_config_file();
+			return false;
+		});
+
+		_window_close_handler.add([&](){
 			if (_comm.is_opened()){
 				com_try_close(true);
 				_timer.stop();
                 if(_auto_send_timer.is_running())
                     _auto_send_timer.stop();
 			}
-			return false;
-		});
-
-		_window_close_handler.add([&](){
-			save_to_config_file();
 			return false;
 		});
 
@@ -255,7 +255,7 @@ namespace Common {
 		// 欢迎语
 		update_status("欢迎使用 Common串口调试工具! Enjoy! :-)");
 
-		com_lock_ui_panel(false);
+		com_lock_ui_panel(_comm.is_opened());
 		return 0;
 	}
 
@@ -1208,6 +1208,7 @@ namespace Common {
 				int nRead, nWritten, nQueued;
 				_comm.get_counter(&nRead, &nWritten, &nQueued);
 				update_status("串口已关闭：接收计数:%u,发送计数:%u,等待发送:%u", nRead, nWritten, nQueued);
+				debug_printll("串口已关闭：接收计数:%u,发送计数:%u,等待发送:%u", nRead, nWritten, nQueued);
 			}
 		}
 		else{
@@ -1226,6 +1227,7 @@ namespace Common {
 					_comm.reset_counter();
 				}
 				update_status("串口已打开!");
+				debug_puts("串口已打开!");
 				_timer.start();
 			}
 		}
@@ -1470,6 +1472,14 @@ namespace Common {
 			}
 		}
 
+		// 自动打开串口
+		if (auto item = comcfg->get_key("comm.config.autoopen")) {
+			bool auto_open = item->get_bool();
+			if (auto_open) {
+				com_openclose();
+			}
+		}
+
 		// 自动发送
 		bool bAutoSend = false;
 		int  interval = -1;
@@ -1537,6 +1547,9 @@ namespace Common {
 		comcfg->set_key("comm.config.parity", get_cbo_item_data(_hPA)->get_i());
 		comcfg->set_key("comm.config.databit", get_cbo_item_data(_hDB)->get_i());
 		comcfg->set_key("comm.config.stopbit", get_cbo_item_data(_hSB)->get_i());
+
+		// 自动打开串口
+		comcfg->set_key("comm.config.autoopen", _comm.is_opened());
 
 		// 自动发送
 		comcfg->set_key("comm.autosend.enable", !!::IsDlgButtonChecked(m_hWnd, IDC_CHK_AUTO_SEND));
