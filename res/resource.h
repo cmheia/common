@@ -69,7 +69,7 @@
 #define IDC_CMD_STATIC_NAME             1067
 #define IDC_BUTTON1                     1068
 #define IDC_BTN_SEND_FMT_CONFIG         1068
-#define IDC_BUTTON2                     1069
+#define IDC_BTN_RECV_FMT_CONFIG         1069
 #define MAINSTATIC_CP                   1071
 #define MAINSTATIC_BR                   1072
 #define MAINSTATIC_CHK                  1073

@@ -4,19 +4,25 @@ namespace Common{
 	//////////////////////////////////////////////////////////////////////////
 	//////////////////////////////////////////////////////////////////////////
 	//////////////////////////////////////////////////////////////////////////
+	typedef enum tag_eProcessType {
+		kNoMore = 0,	// 无须再次处理
+		kMore,			// 需要再次处理
+		kBuffer			// 有缓存, 字节超时
+	} eProcessType;
+
 	// 数据处理器接口: 比如文本管理器 16进制管理器, 由下面的数据接收器调用
 	// 一般由需要有后续处理的数据处理继承此接口, 否则可以直接处理, 比如'\t'的处理就不需要
 	class i_data_processor
 	{
 	public:
 		// 处理部分数据: 
-		//		follow:	前一次调用是否为本处理函数, 也即后续连续调用
+		//		type:	详见 eProcessType
 		//		ba:		Byte Array, 字节数组
 		//		cb:		Count of Bytes, 字节数
 		//		*pn:	本次处理了多少数据
 		// 返回值:
-		//		bool:	是否希望继续处理, 影响下一次调用时follow的值
-		virtual bool process_some(bool follow, const unsigned char* ba, int cb, int* pn) = 0;
+		//		eProcessType
+		virtual eProcessType process_some(eProcessType type, const unsigned char* ba, int cb, int* pn) = 0;
 
 		// 重置数据处理缓冲: 比如, 在关闭串口后, 或清空16进制数据后
 		virtual void reset_buffer() = 0;
@@ -34,14 +40,15 @@ namespace Common{
 		virtual void reset_buffer() = 0;
 	protected:
 		// 一个调用处理器并设置剩余数据与后续调用标志的辅助函数
-		virtual bool process(i_data_processor* proc, bool follow, const unsigned char** pba, int* pcb, i_data_processor** ppre)
+		// type: 详见 eProcessType
+		virtual eProcessType process(i_data_processor* proc, eProcessType type, const unsigned char** pba, int* pcb, i_data_processor** ppre)
 		{
 			int n;
-			bool c = proc->process_some(follow, *pba, *pcb, &n);
+			eProcessType c = proc->process_some(type, *pba, *pcb, &n);
 			SMART_ASSERT(n <= *pcb)(n)(*pcb).Fatal();
 			*pba += n;
 			*pcb -= n;
-			*ppre = c ? proc : NULL;
+			*ppre = (c != kNoMore) ? proc : NULL;
 			return c;
 		}
 	};
@@ -53,7 +60,7 @@ namespace Common{
 	{
 	public:
 		virtual operator i_data_processor*() { return static_cast<i_data_processor*>(this); }
-		virtual bool process_some(bool follow, const unsigned char* ba, int cb, int* pn);
+		virtual eProcessType process_some(eProcessType type, const unsigned char* ba, int cb, int* pn);
 		virtual void reset_buffer() {}
 
 	public:
@@ -64,7 +71,7 @@ namespace Common{
 	{
 	public:
 		virtual operator i_data_processor*() { return static_cast<i_data_processor*>(this); }
-		virtual bool process_some(bool follow, const unsigned char* ba, int cb, int* pn);
+		virtual eProcessType process_some(eProcessType type, const unsigned char* ba, int cb, int* pn);
 		virtual void reset_buffer();
 
 		c_crlf_data_processor()
@@ -85,7 +92,7 @@ namespace Common{
 	{
 	public:
 		virtual operator i_data_processor*() { return static_cast<i_data_processor*>(this); }
-		virtual bool process_some(bool follow, const unsigned char* ba, int cb, int* pn);
+		virtual eProcessType process_some(eProcessType type, const unsigned char* ba, int cb, int* pn);
 		virtual void reset_buffer();
 
 	protected:
@@ -107,7 +114,7 @@ namespace Common{
 	{
 	public:
 		virtual operator i_data_processor*() { return static_cast<i_data_processor*>(this); }
-		virtual bool process_some(bool follow, const unsigned char* ba, int cb, int* pn);
+		virtual eProcessType process_some(eProcessType type, const unsigned char* ba, int cb, int* pn);
 		virtual void reset_buffer();
 
 	public:
@@ -121,7 +128,7 @@ namespace Common{
 			: decode_buffer(0), buffered_count(0)
 		{}
 		virtual operator i_data_processor*() { return static_cast<i_data_processor*>(this); }
-		virtual bool process_some(bool follow, const unsigned char* ba, int cb, int* pn);
+		virtual eProcessType process_some(eProcessType type, const unsigned char* ba, int cb, int* pn);
 		virtual void reset_buffer();
 
 	public:
@@ -141,7 +148,7 @@ namespace Common{
 			: _lead_byte(0)
 		{}
 		virtual operator i_data_processor*() { return static_cast<i_data_processor*>(this); }
-		virtual bool process_some(bool follow, const unsigned char* ba, int cb, int* pn);
+		virtual eProcessType process_some(eProcessType type, const unsigned char* ba, int cb, int* pn);
 		virtual void reset_buffer();
 
 	public:
@@ -151,17 +158,32 @@ namespace Common{
 
 	//////////////////////////////////////////////////////////////////////////
 	class c_text_data_receiver : public i_data_receiver
+		, public i_timer_period
 	{
 	public:
 		c_text_data_receiver()
-			: _pre_proc(0)
-			, _rich_editor(0)
-		{}
+			: _pre_proc(NULL)
+			, _rich_editor(NULL)
+			, _char_decoder(_proc_unicode)
+		{
+			_validity_timer.set_period(100);
+			_validity_timer.set_period_timer(this);
+		}
+
+		enum character_encoding_e {
+			charset_gb2312 = 0,
+			charset_utf8,
+		};
+		typedef struct {
+			character_encoding_e id;
+			char *name;
+			i_data_processor* processor;
+		} encoding_t;
 
 		// interface i_data_receiver
 		virtual void receive(const unsigned char* ba, int cb);
 		virtual void reset_buffer(){
-			_pre_proc = 0;
+			_pre_proc = NULL;
 			_proc_ascii.reset_buffer();
 			_proc_unicode.reset_buffer();
 			_proc_escape.reset_buffer();
@@ -177,6 +199,46 @@ namespace Common{
 			_proc_crlf._richedit = edt;
 			_proc_gb2312._richedit = edt;
 		}
+		void set_validity_interval(int ms) {
+			_validity_timer.set_period(ms);
+		}
+		int get_validity_interval(void) {
+			return _validity_timer.get_period();
+		}
+		void start_validity_ticker() {
+			stop_validity_ticker();
+			_validity_timer.start();
+		}
+		int stop_validity_ticker(void) {
+			if (_validity_timer.is_running()) {
+				_validity_timer.stop();
+			}
+			return _validity_timer.get_period();
+		}
+		const encoding_t* get_encoding_list() {
+			return &_encoding_list[0];
+		}
+		int get_encoding_list_len() {
+			return (sizeof(_encoding_list) / sizeof(_encoding_list[0]));
+		}
+		const char* encoding_id_2_name(character_encoding_e id) {
+			return _encoding_list[id].name;
+		}
+		const character_encoding_e encoding_name_2_id(const char* name) {
+			for (int i = 0; i < get_encoding_list_len(); i++) {
+				if (0 == strcmp(name, _encoding_list[i].name)) {
+					return _encoding_list[i].id;
+				}
+			}
+			return _encoding_list[0].id;
+		}
+		void set_char_encoding(character_encoding_e en) {
+			_char_decoder = _encoding_list[en].processor;
+			debug_printll("encoding:%d, decoder:%p", en, _char_decoder);
+		}
+		void set_char_timeout(int timeout) {
+			set_validity_interval(timeout);
+		}
 
 	protected:
 		Window::c_rich_edit*		_rich_editor;
@@ -187,6 +249,13 @@ namespace Common{
 		c_ascii_data_processor		_proc_ascii;
 		c_unicode_string_processor	_proc_unicode;
 		c_gb2312_data_processor		_proc_gb2312;
+		c_timer						_validity_timer;
+		virtual void update_timer_period() override;
+		const encoding_t _encoding_list[2] = {
+			{ charset_gb2312, "GB2312", _proc_gb2312 },
+			{ charset_utf8, "UTF-8", _proc_unicode },
+		};
+		i_data_processor*			_char_decoder;
 	};
 
 	//////////////////////////////////////////////////////////////////////////
@@ -199,7 +268,7 @@ namespace Common{
 		{}
 
 		virtual operator i_data_processor*() { return static_cast<i_data_processor*>(this); }
-		virtual bool process_some(bool follow, const unsigned char* ba, int cb, int* pn);
+		virtual eProcessType process_some(eProcessType type, const unsigned char* ba, int cb, int* pn);
 		virtual void reset_buffer();
 		void set_count(int n) { _count = n; }
 

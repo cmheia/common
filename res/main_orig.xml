@@ -40,10 +40,17 @@
 							<!--GroupBox-->
 							<Control id="MAINSTATIC_RECV_FORMAT"/>
 							<!--Options-->
-							<Vertical inset="10,16,5,5">
-								<Control id="IDC_RADIO_RECV_HEX" />
-								<Control id="IDC_RADIO_RECV_CHAR" />
-							</Vertical>
+							<Horizontal>
+								<Vertical inset="10,16,5,5">
+									<Control id="IDC_RADIO_RECV_HEX" />
+									<Control id="IDC_RADIO_RECV_CHAR" />
+								</Vertical>
+								<Vertical width="30" inset="5,10,5,0">
+									<Control />
+									<Control id="IDC_BTN_RECV_FMT_CONFIG" height="30"/>
+									<Control />
+								</Vertical>
+							</Horizontal>
 						</Container>
 						<Control height="5"/>
 						<!--发送格式-->

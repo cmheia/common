@@ -4,7 +4,7 @@
 
 namespace Common{
 	//////////////////////////////////////////////////////////////////////////
-	bool c_hex_data_processor::process_some(bool follow, const unsigned char* ba, int cb, int* pn)
+	eProcessType c_hex_data_processor::process_some(eProcessType type, const unsigned char* ba, int cb, int* pn)
 	{
 		char buf[1024];
 		char* str;
@@ -24,7 +24,7 @@ namespace Common{
 		_count += cb;
 
 		*pn = cb;
-		return false;
+		return kNoMore;
 	}
 
 	void c_hex_data_processor::reset_buffer()
@@ -36,20 +36,20 @@ namespace Common{
 	{
 		for (; cb > 0;){
 			if (_pre_proc){ // 可能处理后cb==0, 所以不管process的返回值
-				process(_pre_proc, true, &ba, &cb, &_pre_proc);
+				process(_pre_proc, kMore, &ba, &cb, &_pre_proc);
 				continue;
 			}
 
-			if (process(_proc_hex, false, &ba, &cb, &_pre_proc) || cb==0)
+			if (process(_proc_hex, kNoMore, &ba, &cb, &_pre_proc) || cb==0)
 				continue;
 		}
 	}
 
 	//////////////////////////////////////////////////////////////////////////
-	bool c_single_byte_processor::process_some(bool follow, const unsigned char* ba, int cb, int* pn)
+	eProcessType c_single_byte_processor::process_some(eProcessType type, const unsigned char* ba, int cb, int* pn)
 	{
 		SMART_ASSERT(_richedit != NULL).Fatal();
-		SMART_ASSERT(follow == false).Warning();
+		SMART_ASSERT(kNoMore == type).Warning();
 		//SMART_ASSERT(cb == 1)(cb).Fatal();
 
 		char buf[5];
@@ -58,17 +58,17 @@ namespace Common{
 		_richedit->append_text(buf);
 
 		*pn = 1;
-		return false;
+		return kNoMore;
 	}
 
 	//////////////////////////////////////////////////////////////////////////
-	bool c_crlf_data_processor::process_some(bool follow, const unsigned char* ba, int cb, int* pn)
+	eProcessType c_crlf_data_processor::process_some(eProcessType type, const unsigned char* ba, int cb, int* pn)
 	{
 		char inner_buf[1024];		// 内部缓冲
 		int n = 0;					// 记录新crlf的个数
 		char* str;
 
-		if (!follow){
+		if (kNoMore == type) {
 			_post_len = 0;
 			_data.empty();
 		}
@@ -79,7 +79,7 @@ namespace Common{
 
 		if (n <= 0){
 			*pn = 0;
-			return false;
+			return kNoMore;
 		}
 
 		_data.append(ba, n);
@@ -105,7 +105,7 @@ namespace Common{
 			memory.free((void**)&str, "");
 
 		*pn = n;
-		return true;
+		return kMore;
 	}
 
 	void c_crlf_data_processor::reset_buffer()
@@ -130,16 +130,16 @@ namespace Common{
 		return (int)p - (int)str;
 	}
 
-	bool c_escape_data_processor::process_some(bool follow, const unsigned char* ba, int cb, int* pn)
+	eProcessType c_escape_data_processor::process_some(eProcessType type, const unsigned char* ba, int cb, int* pn)
 	{
 		int i = 0;
 		int step;
 
-		if (!follow){
+		if (kNoMore == type) {
 			reset_buffer();
 		}
 
-		bool r = true;
+		eProcessType r = kMore;
 
 		for (i = 0; i < cb; i += step){
 			step = 0;
@@ -153,7 +153,7 @@ namespace Common{
 				}
 				else{
 					debug_out(("state: LCS_NONE: expect:\\033, but 0x%02X!\n", ba[i]));
-					r = false;
+					r = kNoMore;
 					goto _exit;
 				}
 				break;
@@ -166,7 +166,7 @@ namespace Common{
 				else{
 					debug_out(("state: LCS_ESC: expect: [, but 0x%02X\n", ba[i]));
 					_state = LCS_NONE;
-					r = false;
+					r = kNoMore;
 					goto _exit;
 				}
 				break;
@@ -241,7 +241,7 @@ namespace Common{
 				else{
 					debug_out(("state: LCS_BRACKET: unexpected token: %02X\n", ba[i]));
 					_state = LCS_NONE;
-					r = false;
+					r = kNoMore;
 					goto _exit;
 				}
 				break;
@@ -293,7 +293,7 @@ namespace Common{
 					else{
 						debug_out(("state: LCS_VAL: unknown token: %02X\n", ba[i]));
 						_state = LCS_NONE;
-						r = false;
+						r = kNoMore;
 						goto _exit;
 
 					}
@@ -312,7 +312,7 @@ namespace Common{
 					else{
 						debug_out(("state: LCS_EQU+LCS_VAL: unexpected token: %02X\n", ba[i]));
 						_state = LCS_NONE;
-						r = false;
+						r = kNoMore;
 						goto _exit;
 					}
 				}
@@ -345,13 +345,13 @@ namespace Common{
 					else{
 						debug_out(("state: LCS_SEMI+LCS_VAL: unexpected token: %02X\n", ba[i]));
 						_state = LCS_NONE;
-						r = false;
+						r = kNoMore;
 						goto _exit;
 					}
 				}
 				else{
 					debug_out(("state: LCS_VAL: unexpected token: %02X\n", ba[i]));
-					r = false;
+					r = kNoMore;
 					goto _exit;
 				}
 				break;
@@ -385,7 +385,7 @@ namespace Common{
 				}
 				else{
 					debug_out(("state: LCS_SEMI: unknown token: %02X\n", ba[i]));
-					r = false;
+					r = kNoMore;
 					goto _exit;
 				}
 				break;
@@ -409,7 +409,7 @@ namespace Common{
 				}
 				else{
 					debug_out(("state: LCS_EQU: unknown token %02X\n", ba[i]));
-					r = false;
+					r = kNoMore;
 					_state = LCS_NONE;
 					goto _exit;
 				}
@@ -422,14 +422,14 @@ namespace Common{
 			case LCS_m:
 			case LCS_h:	case LCS_l:
 				debug_out(("parsing completed\n"));
-				r = false;
+				r = kNoMore;
 				_state = LCS_NONE;
 				_data.append_char('\0');
 				_richedit->apply_linux_attributes((char*)_data.get_data());
 				goto _exit;
 			default:
 				debug_out(("unknown lcs token\n"));
-				r = false;
+				r = kNoMore;
 				_state = LCS_NONE;
 				goto _exit;
 			}
@@ -453,7 +453,7 @@ namespace Common{
 	}
 
 	//////////////////////////////////////////////////////////////////////////
-	bool c_ascii_data_processor::process_some(bool follow, const unsigned char* ba, int cb, int* pn)
+	eProcessType c_ascii_data_processor::process_some(eProcessType type, const unsigned char* ba, int cb, int* pn)
 	{
 		char buf[1024];
 		int n = 0;
@@ -467,7 +467,7 @@ namespace Common{
 		_richedit->append_text(buf);
 
 		*pn = n;
-		return false;
+		return kNoMore;
 	}
 
 	void c_ascii_data_processor::reset_buffer()
@@ -476,9 +476,9 @@ namespace Common{
 	}
 
 	//////////////////////////////////////////////////////////////////////////
-	bool c_unicode_string_processor::process_some(bool follow, const unsigned char* ba, int cb, int* pn)
+	eProcessType c_unicode_string_processor::process_some(eProcessType type, const unsigned char* ba, int cb, int* pn)
 	{
-		debug_printll("follow:%d, glance:%X, len:%d", follow, *ba, cb);
+		debug_printll("type:%d, glance:%02X, len:%d", type, *ba, cb);
 		typedef union _tag_u8_mem {
 			uint64_t mem;
 			struct _tag_u8_bytes {
@@ -486,18 +486,6 @@ namespace Common{
 			} u8;
 		} u8_mem;
 
-#if 0
-		if (follow) {
-			int n = 1;
-			_richedit->append_text(u8->u8.str, CP_UTF8);
-
-			*pn = n;
-			return false;
-		}
-		else {
-		}
-#endif
-#if 1
 		typedef enum {
 			UTF8_OK,
 			BROKEN_SEQUENCE, // miss following byte(s)
@@ -532,7 +520,7 @@ namespace Common{
 
 		// return value
 		// offset of last valid byte in input stream
-		auto is_stream_utf8_compliant = [&character_depth,&follow](const unsigned char *stream, int len, utf_error& err) {
+		auto is_stream_utf8_compliant = [&character_depth](const unsigned char *stream, int len, utf_error& err) {
 			int following_byte_count = 0; // how many following byte(s) should this UTF-8 character have
 			int index = 0; // processed count
 			int distance_to_lead = 0;
@@ -586,7 +574,7 @@ namespace Common{
 						//err = UTF8_OK;
 					}
 					else if (is_not_ascii == 1) { // valid lead is missing. this is a UTF-8 following byte
-						//if (follow) { // 前面有缓存, 此处应该拿来用?
+						//if (kMore == type) { // 前面有缓存, 此处应该拿来用?
 						//	err = INCOMPLETE_SEQUENCE;
 						//	index++; // patch
 						//	break;
@@ -611,41 +599,7 @@ namespace Common{
 					break;
 				}
 			} while (++index < len);
-#if 0
-			for (; pos < len; pos++) { // search through input byte stream
-				int is_not_ascii = character_depth(bytes[pos]);
 
-				if (char_depth > 0) { // we expect some byte(s) to form a valid UTF-8 character
-					if (is_not_ascii == 0) { // The code point ended early
-						err = NOT_ENOUGH_ROOM; // valid sequence byte is missing
-						break; // we found ascii in a UTF-8 code point location
-					}
-					else { // what we expect was founded
-						char_depth--; // Cool, we found next code point, decrease count
-					}
-				}
-				else if (char_depth == 0) {
-					if (is_not_ascii == 0) {
-						// this is an ascii character
-						// do nothing. this is goodness, the compile will optimize this out
-					}
-					else if (is_not_ascii == 1) { // valid lead is missing. this is a UTF-8 sequence byte
-						err = INVALID_LEAD; // this should never happen, the beginning of a UTF-8 should begine with a min of 2
-						break;
-					}
-					else {
-						// valid lead. this UTF-8 character should be [is_not_ascii] depth.
-						// so next [is_not_ascii - 1] byte(s) must be UTF-8 sequence byte
-						char_depth = is_not_ascii - 1; //This code point count is inclusive of this byte
-					}
-				}
-				else {
-					debug_printl("we should never be here! pos=%d, char_depth=%d", pos, char_depth);
-					err = UTF8_UNKNOW;
-					break;
-				}
-			}
-#endif
 			if (err == INCOMPLETE_SEQUENCE) {
 				index -= (distance_to_lead + 1); // 第一个数据报的孤独的 lead 应该到这里
 				// pos -> invalid lead
@@ -653,36 +607,8 @@ namespace Common{
 			// index -> invalid lead
 			return index;
 		};
-#if 0
-		auto handle_invalid_bytes_untile_valid_lead = [&character_depth, &this->_richedit](const unsigned char* stream) {
-#define MAX_INVALID_BYTE_PRINT_BUFFER 4096
-#define MAX_INVALID_BYTE_PRINT_COUNT  ((MAX_INVALID_BYTE_PRINT_BUFFER - 1) / 4)
-			char print_buffer[MAX_INVALID_BYTE_PRINT_BUFFER];
-			char *current_buffer = print_buffer;
 
-			int i = 0;
-			do { // handle invalid byte(s) untile we meet a valid lead
-					// the first byte is invalid so we can use do{}while() loop
-				int printed = sprintf(current_buffer, "<%02X>", stream + i);
-				if (printed != -1) {
-					current_buffer += printed;
-				}
-				else {
-					debug_printll("sprintf failed, %d, %p", i, current_buffer);
-#ifdef _DEBUG
-					continue; // incase of sprintf failed
-#endif
-				}
-				i++;
-			} while (!is_valid_lead(stream[i]) && i < MAX_INVALID_BYTE_PRINT_COUNT);
-			current_buffer[i] = 0; // null-terminated
-			current_buffer = print_buffer; // reset buffer pointer
-			_richedit->append_text(print_buffer, CP_UTF8);
-			return count;
-		};
-#endif
-
-		bool ret = false;
+		eProcessType ret = kNoMore;
 		int processed = 0;
 		unsigned char* stream = (unsigned char*)ba;
 #define MAX_INVALID_BYTE_PRINT_BUFFER 4096
@@ -690,7 +616,7 @@ namespace Common{
 		char print_buffer[MAX_INVALID_BYTE_PRINT_BUFFER];
 		char *current_buffer = print_buffer;
 
-		if (follow) { // 前面有缓存, 此处应优先处理
+		if (kNoMore != type) { // 前面有缓存, 此处应优先处理
 			debug_printll("buffered_count=%d", buffered_count);
 			utf_error status;
 			u8_mem *u8 = static_cast<u8_mem *>(static_cast<void*>(&decode_buffer));
@@ -708,6 +634,31 @@ namespace Common{
 
 			case INCOMPLETE_SEQUENCE:
 				debug_printll("INCOMPLETE_SEQUENCE buffer pos=%d", pos);
+				// 重组超时, 此时需要 flush buffer, 然后撒手(返回 false)
+				if (kBuffer == type) {
+					do {
+						int i = 0;
+						do { // handle invalid byte(s) untile we meet a valid lead
+							 // the first byte is invalid so we can use do{}while() loop
+							int printed = sprintf(current_buffer, "<%02X>", u8->u8.str[i]);
+							if (printed != -1) {
+								current_buffer += printed;
+							}
+							else {
+								debug_printll("sprintf failed, %d, %p", i, current_buffer);
+								break;
+							}
+							i++;
+						} while (i < buffered_count);
+						current_buffer[i] = 0; // null-terminated
+						reset_buffer();
+						debug_printll("timeout:flush %d bytes: \"%s\"", buffered_count, print_buffer);
+						_richedit->append_text(print_buffer, CP_UTF8);
+					} while (0);
+					*pn = 0;
+					return kNoMore;
+				}
+
 				do {
 					int unprocessed = cb - processed;
 					int i = 0;
@@ -729,7 +680,7 @@ namespace Common{
 				pos = is_stream_utf8_compliant(u8->u8.str, buffered_count, status);
 				if (UTF8_OK != status) {
 					debug_printll("codepoint not buffered, remain %d bytes", cb);
-					ret = true; // request to be next handle
+					ret = kMore; // request to be next handle
 					break;
 				}
 				else {
@@ -757,32 +708,7 @@ namespace Common{
 			int pos = is_stream_utf8_compliant(stream, cb - processed, status);
 
 			switch (status) {
-#if 0
-			case INVALID_LEAD:
-				// invalid lead, byte*, valid lead
-				if (pos == 0) { // occur at first byte
-					int i = 0;
-					do { // handle invalid byte(s) untile we meet a valid lead
-						// the first byte is invalid so we can use do{}while() loop
-						int printed = sprintf(current_buffer, "<%02X>", ba[i]);
-						if (printed != -1) {
-							current_buffer += printed;
-						}
-						else {
-							debug_printll("sprintf failed, %d, %p", i, current_buffer);
-#ifdef _DEBUG
-							continue; // incase of sprintf failed
-#endif
-						}
-						i++;
-					} while (!is_valid_lead(ba[i]) && i < MAX_INVALID_BYTE_PRINT_COUNT);
-					current_buffer[i] = 0; // null-terminated
-					current_buffer = print_buffer; // reset buffer pointer
-					_richedit->append_text(print_buffer, CP_UTF8);
-					continue; // it's time to handle valid UTF-8 character(s)
-				}
-				break;
-#endif
+
 			case BROKEN_SEQUENCE:
 				debug_printll("BROKEN_SEQUENCE pos=%d", pos);
 				// miss following byte(s)
@@ -819,7 +745,7 @@ namespace Common{
 							else {
 								debug_printll("sprintf failed, %d, %p", i, current_buffer);
 #ifdef _DEBUG
-								continue; // incase of sprintf failed
+								break; // incase of sprintf failed
 #endif
 							}
 							i++;
@@ -886,7 +812,7 @@ namespace Common{
 						//stream += i; // unnecessary, because we will break and than return
 					}
 				}
-				ret = true; // request to be next handle
+				ret = kMore; // request to be next handle
 				break;
 
 			case UTF8_UNKNOW:
@@ -896,165 +822,15 @@ namespace Common{
 		} while (0);
 
 		*pn = processed;
+		// shou be an timeout for reassemble codepoint. ie. an edit box at UI to specify validity interval
+		// before process_some() return, check buffered_count to see if there is any buffered byte.
+		// we should inform caller that validity interval is counting.
+		if (buffered_count) {
+			// inform caller(c_text_data_receiver::receive) that validity interval should be count.
+			;
+		}
+		debug_printll("ret:%d", ret);
 		return ret;
-#endif
-#if 0
-			auto judge = [&character_depth, ba, cb](const unsigned char* stream) {
-				if ((is_valid_lead(*stream))) {
-					return INVALID_LEAD;
-				} else if (ba + cb == utf8::find_invalid(ba, ba + cb)) {
-					return UTF8_OK;
-				} else if (ba + cb == utf8::find_invalid(ba, ba + cb)) {
-					return UTF8_OK;
-				}
-			};
-
-			bool ret = false;
-			utf_error status = judge(ba);
-
-			switch (status) {
-
-			case INVALID_LEAD:
-				do {
-#define MAX_INVALID_CHAR_PRINT_BUFFER 4096
-#define MAX_INVALID_CHAR_PRINT_COUNT  ((MAX_INVALID_CHAR_PRINT_BUFFER - 1) / 4)
-					char print_buffer[MAX_INVALID_CHAR_PRINT_BUFFER];
-					char *p = print_buffer;
-					// handle invalid bytes
-					int i = 0;
-					do {
-						p += sprintf(p, "<%02X>", ba + i);
-						i++;
-					} while (!is_valid_lead(ba[i]) && i < MAX_INVALID_CHAR_PRINT_COUNT);
-					p[i] = 0;
-					_richedit->append_text(print_buffer, CP_UTF8);
-				} while (0);
-				break;
-
-			case UTF8_OK:
-				_richedit->append_text((const char*)ba, CP_UTF8);
-				*pn = cb;
-				reset_buffer();
-				debug_printll("perfect u8, %d bytes", cb);
-				break;
-
-			case NOT_ENOUGH_ROOM:
-				break;
-			case INCOMPLETE_SEQUENCE:
-				break;
-			case OVERLONG_SEQUENCE:
-				break;
-			case INVALID_CODE_POINT:
-				break;
-			}
-			return ret;
-
-			//u8->u8.len = sequence_length(*ba);
-
-			//try {
-			//	for (int i = 0; i < cb; i++) {
-			//	}
-			//	uint32_t cp = utf8::next(ba, ba + cb);
-			//} catch (std::exception* e) {
-			//}
-#endif
-#if 0
-			// Detects an invalid sequence within a UTF-8 string.
-			// Return value: an iterator pointing to the first invalid octet in the UTF-8 string.
-			unsigned char* invalid = (unsigned char*)utf8::find_invalid(ba, ba + cb);
-
-			// none were found
-			if (invalid == ba + cb) {
-				_richedit->append_text((const char*)ba, CP_UTF8);
-				*pn = cb;
-				reset_buffer();
-				debug_printll("perfect u8, %d bytes", cb);
-				return false;
-			} else {
-				// invalid [u8]
-				if (invalid == ba) {
-					//unsigned char* valid = (unsigned char*)utf8::find_valid(ba, ba + cb);
-					//try {
-					//	// 遍历输入流找到有效u8的起始位置
-					//	for (int i = 0; i < cb; i++) {
-					//		const unsigned char* start = ba + i;
-					//		uint32_t cp = utf8::next(start, ba + cb);
-					//	}
-					//} catch (const utf8::exception& utfcpp_ex) {
-					//	debug_printl("%s", utfcpp_ex.what());
-					//}
-					if (buffered_count == 0) { // new arival
-						for (int i = 0; i < cb; i++) { // 遍历输入流找到有效u8的起始位置
-							try {
-								const unsigned char* start = ba + i;
-								uint32_t cp = utf8::next(start, ba + cb);
-							}
-							catch (const utf8::exception& utfcpp_ex) {
-								debug_printl("%s", utfcpp_ex.what());
-							}
-						}
-						if (cb > 6) { // u8 char not more than 6 bytes
-							char print_buffer[4 * 6 + 1];
-							char *p = print_buffer;
-							// handle invalid bytes
-							for (int i = 0; i < ?; i++) {
-								p += sprintf(print_buffer, "<%02X>", ba + i);
-							}
-							_richedit->append_text(print_buffer, CP_UTF8);
-						}
-						// try buffer them
-						int i;
-						for (i = 0; i < cb; i++) {
-							u8->u8.str[i] = *ba;
-						}
-						buffered_count += i;
-					} else { // we have buffered bytes, try to assemble a valid u8 char
-						u8->u8.str[buffered_count++] = *ba;
-					}
-					// find first valid u8 char
-					while (0) {
-						unsigned char backup = *invalid;
-						*invalid = 0;
-						_richedit->append_text((const char*)ba, CP_UTF8);
-						*invalid = backup;
-
-						char print_buffer[16];
-						sprintf(print_buffer, "<%02X>", *invalid);
-						_richedit->append_text(print_buffer, CP_UTF8);
-					}
-				}
-				// u8 invalid [u8]
-				if (invalid == ba) {
-					if () {
-						;
-					}
-					// buffer invalid to see if we grecv it next time
-				}
-				// u8 invalid
-				;
-			}
-		}
-#endif
-#if 0
-		char buf[128];
-		int n = 0;
-
-		while (n < cb && n < sizeof(buf) - 1) {
-			buf[n] = ba[n];
-			n++;
-		}
-
-		buf[n] = '\0';
-		*pn = n;
-#endif
-#if 0
-		char buf[] = {
-			0xE5, 0x85, 0x8D, 0xE8, 0xB4, 0xB9, 0
-		};
-		_richedit->append_text(buf, CP_UTF8);
-
-		*pn = 1;// n;
-#endif
 	}
 
 	void c_unicode_string_processor::reset_buffer()
@@ -1064,13 +840,39 @@ namespace Common{
 	}
 
 	//////////////////////////////////////////////////////////////////////////
+	void c_text_data_receiver::update_timer_period()
+	{
+		(void)stop_validity_ticker();
+		debug_printll("_pre_proc:%p, validity:%d", _pre_proc, get_validity_interval());
+		if (NULL != _pre_proc) {
+			// 0xC0000005: 读取位置 0x00000000 时发生访问冲突。
+			//eProcessType more = process(_pre_proc, kBuffer, NULL, NULL, &_pre_proc);
+			unsigned char dummy = '\0';
+			int cb = 0;
+			const unsigned char* ba = &dummy;
+			eProcessType more = process(_pre_proc, kBuffer, &ba, &cb, &_pre_proc);
+			if (more > kNoMore) {
+				// 启动超时计数, 结束时调用 _pre_proc
+				start_validity_ticker();
+			}
+			else {
+				stop_validity_ticker();
+			}
+		}
+	}
+
 	void c_text_data_receiver::receive(const unsigned char* ba, int cb)
 	{
 		for (; cb > 0;){
-			debug_printll("glance:%X, len:%d", *ba, cb);
+			debug_printll("glance:%02X, len:%d, _pre_proc:%p", *ba, cb, _pre_proc);
 			if (_pre_proc){// 可能处理后cb==0, 所以不管process的返回值
 				// c_*_processor::process_some 返回真才能满足上一行的 if 判断从而执行到这里
-				process(_pre_proc, true, &ba, &cb, &_pre_proc);
+				eProcessType more = process(_pre_proc, kMore, &ba, &cb, &_pre_proc);
+				if (more > kNoMore) {
+					// 启动超时计数, 结束时调用 _pre_proc
+					debug_printll("start_validity_ticker for:%p", _pre_proc);
+					start_validity_ticker();
+				}
 				continue;
 			}
 
@@ -1107,40 +909,28 @@ namespace Common{
 				}
 				// 回车与换行 (13,10)
 				else if (*ba == '\r' || *ba == '\n'){
-					process(_proc_crlf, false, &ba, &cb, &_pre_proc);
+					process(_proc_crlf, kNoMore, &ba, &cb, &_pre_proc);
 				}
 				// Linux终端, nCursors 控制字符处理
 				else if (*ba == '\033'){
-					process(_proc_escape, false, &ba, &cb, &_pre_proc);
+					process(_proc_escape, kNoMore, &ba, &cb, &_pre_proc);
 				}
 				// 其它 未作处理/不可显示 字符处理
 				else{
-					process(_proc_byte, false, &ba, &cb, &_pre_proc);
+					process(_proc_byte, kNoMore, &ba, &cb, &_pre_proc);
 				}
 			}
 			// 空格以后的ASCII标准字符处理
 			else if (0x20 <= *ba && *ba <= 0x7F){
-				process(_proc_ascii, false, &ba, &cb, &_pre_proc);
+				process(_proc_ascii, kNoMore, &ba, &cb, &_pre_proc);
 			}
 			// 扩展ASCII(Extended ASCII / EUC)字符处理
 			else{
-				// todo: set codepage
-				process(_proc_unicode, false, &ba, &cb, &_pre_proc);
-				return;
-
-				// 当前只处理GB2312
-
-				// 非gb2312编码区
-				if (0x80 <= *ba && *ba <= 0xA0){
-					process(_proc_byte, false, &ba, &cb, &_pre_proc);
-				}
-				// gb2312编码区
-				else if (0xA1 <= *ba && *ba <= 0xFE){
-					process(_proc_gb2312, false, &ba, &cb, &_pre_proc);
-				}
-				//非gb2312编码区
-				else{
-					process(_proc_byte, false, &ba, &cb, &_pre_proc);
+				eProcessType more = process(_char_decoder, kNoMore, &ba, &cb, &_pre_proc);
+				if (more > kNoMore) {
+					// 启动超时计数, 结束时调用 _pre_proc
+					debug_printll("start_validity_ticker for:%p", _pre_proc);
+					start_validity_ticker();
 				}
 			}
 		}
@@ -1160,11 +950,11 @@ namespace Common{
 	// 关于中文处理的正确性保证:
 	// 串口设备由于协议的某种不完整性, 很难保证数据总是完全无误,
 	// 如果在处理过程中遇到错误的编码就很难显示出正确的中文了, 包括后续的字符, 可能导致一错多错
-	bool c_gb2312_data_processor::process_some(bool follow, const unsigned char* ba, int cb, int* pn)
+	eProcessType c_gb2312_data_processor::process_some(eProcessType type, const unsigned char* ba, int cb, int* pn)
 	{
-		debug_printll("%d, %d, %X", follow, cb, *ba);
+		debug_printll("%d, %d, %X", type, cb, *ba);
 		// 是否继续上一次未完的处理?
-		if (follow){
+		if (kMore == type) {
 			unsigned char chs[16];
 
 			if (*ba >= 0xA1 && *ba <= 0xFE){
@@ -1186,7 +976,7 @@ namespace Common{
 
 				_lead_byte = 0;
 				*pn = 1;
-				return false;
+				return kNoMore;
 			}
 			else{
 				// 这里该如何处理是好? 
@@ -1197,7 +987,7 @@ namespace Common{
 
 				_lead_byte = 0;
 				*pn = 0;
-				return false;
+				return kNoMore;
 			}
 		}
 		// 开始新的处理
@@ -1227,7 +1017,7 @@ namespace Common{
 				_richedit->append_text(buf);
 
 				*pn = npairs * 2;
-				return false;
+				return kNoMore;
 			}
 			else{
 				// 只存在一个字节满足的情况
@@ -1236,14 +1026,14 @@ namespace Common{
 					SMART_ASSERT(cb == 1)(cb).Fatal();
 					_lead_byte = *ba;
 					*pn = 1;
-					return true;
+					return kMore;
 				}
 				else{
 					sprintf(buf, "<%02X>", ba[0]);
 					_richedit->append_text(buf);
 
 					*pn = 1;
-					return false;
+					return kNoMore;
 				}
 			}
 		}

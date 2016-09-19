@@ -66,6 +66,8 @@ namespace Common {
 		_b_send_data_format_hex = false; // 字符
 		_send_data_format_hex   = SendDataFormatHex::sdfh_kNone;
 		_send_data_format_char  = SendDataFormatChar::sdfc_kNone;
+		_recv_char_encoding     = c_text_data_receiver::character_encoding_e::charset_utf8;
+		_recv_char_timeout      = 100;
 		_recv_cur_edit          = NULL;
         _b_refresh_comport      = false;
 		_b_reset_counter        = false;
@@ -715,6 +717,22 @@ namespace Common {
 		case IDC_RADIO_RECV_HEX:
 			if (code == BN_CLICKED){
 				switch_recv_data_format();
+				return 0;
+			}
+			break;
+		case IDC_BTN_RECV_FMT_CONFIG:
+			if (code == BN_CLICKED) {
+				debug_printll("%d:%s", _recv_char_encoding, _text_data_receiver.get_encoding_list()[_recv_char_encoding].name);
+				bool bchar = is_recv_data_format_char();
+				c_recv_data_format_dlg* prdf = new c_recv_data_format_dlg(
+					bchar,
+					&_recv_char_encoding,
+					&_recv_char_timeout,
+					_text_data_receiver.get_encoding_list(),
+					_text_data_receiver.get_encoding_list_len());
+				prdf->do_modal(*this);
+				_text_data_receiver.set_char_encoding(_recv_char_encoding);
+				_text_data_receiver.set_char_timeout(_recv_char_timeout);
 				return 0;
 			}
 			break;
@@ -1395,6 +1413,16 @@ namespace Common {
 			else _send_data_format_char &= ~SendDataFormatChar::sdfc_kUseEscape;
 		}
 
+		// 接收字符解码设置
+		if (auto item = comcfg->get_key("comm.recv.format.encoding")) {
+			_recv_char_encoding = _text_data_receiver.encoding_name_2_id(item->val().c_str());
+		}
+		if (auto item = comcfg->get_key("comm.recv.format.timeout")) {
+			_recv_char_timeout = item->get_int();
+		}
+		_text_data_receiver.set_char_encoding(_recv_char_encoding);
+		_text_data_receiver.set_char_timeout(_recv_char_timeout);
+
 		// 串口参数配置
 		if (auto item = comcfg->get_key("comm.config.comport")){
 			auto& cp = _comport_list;
@@ -1509,6 +1537,10 @@ namespace Common {
 
 		comcfg->set_key("comm.send.format.char.escape",
 			_send_data_format_char & SendDataFormatChar::sdfc_kUseEscape ? "true" : "false");
+
+		// 接收字符解码设置
+		comcfg->set_key("comm.recv.format.encoding", _text_data_receiver.encoding_id_2_name(_recv_char_encoding));
+		comcfg->set_key("comm.recv.format.timeout", std::to_string(_recv_char_timeout).c_str());
 
 		// 串口参数配置
 		auto get_cbo_item_data = [](HWND hcbo){
@@ -1763,6 +1795,108 @@ namespace Common {
 			}
 			return 0;
 		}
+		}
+		return __super::handle_message(uMsg, wParam, lParam, bHandled);
+	}
+
+	//////////////////////////////////////////////////////////////////////////
+	//////////////////////////////////////////////////////////////////////////
+	//////////////////////////////////////////////////////////////////////////
+	LPCTSTR c_recv_data_format_dlg::get_skin_xml() const
+	{
+		return
+			_bchar ?
+		R"feifei(
+			<Window size="300,110">
+				<Font name="微软雅黑" size="12" default="true" />
+				<Font name="微软雅黑" size="12"/>
+				<Vertical>
+					<Horizontal>
+						<Container inset="5,5,5,5" height="110" width="150">
+							<Group text="字符编码"/>
+							<Vertical inset="15,20,5,5">
+								<Option name="GB2312" text="GB2312" style="group"/>
+								<Option name="UTF-8" text="UTF-8" />
+							</Vertical>
+						</Container>
+						<Container inset="5,5,5,5" height="110" width="150">
+							<Group text="字符重组超时"/>
+							<Vertical inset="10,20,5,5">
+								<Horizontal height="18">
+									<Edit name="timeout"/>
+									<Static text="ms" inset="10,0,0,0"/>
+								</Horizontal>
+								<Static text="预防丢失字节导致残缺字符积压缓存，超时后作为字节解析显示。"/>
+							</Vertical>
+						</Container>
+					</Horizontal>
+				</Vertical>
+			</Window>
+			)feifei"
+		:
+	R"feifei(
+<Window size="300,110">
+	<Font name="微软雅黑" size="12" default="true" />
+	<Font name="黑体" size="20"/>
+	<Vertical>
+		<Vertical>
+			<Control />
+			<Horizontal height="30">
+				<Control />
+				<Static text="当前没有可设置的属性" font="1" width="200"/>
+				<Control />
+			</Horizontal>
+			<Control />
+		</Vertical>
+	</Vertical>
+</Window>
+		)feifei"
+		;
+	}
+
+	LRESULT c_recv_data_format_dlg::on_command_ctrl(HWND hwnd, SdkLayout::CControlUI* ctrl, int code)
+	{
+		LPCTSTR name = ctrl->GetName();
+		if (code == BN_CLICKED) {
+			debug_printll("%s", name);
+			for (int i = 0; i < _encoding_list_len; i++) {
+				debug_printll("[%d]id:%d, name:%s", i, _enc[i].id, _enc[i].name);
+				if (0 == strcmp(name, _enc[i].name)) {
+					*_dwEncoding = _enc[i].id;
+					debug_printll("[%d]id:%d, name:%s", i, _enc[i].id, _enc[i].name);
+				}
+			}
+		}
+		else if (code == EN_CHANGE) {
+			if (0 == strcmp(name, "timeout")) {
+				char buffer[MAX_PATH] = { 0 };
+				::SendMessage(ctrl->GetHWND(), WM_GETTEXT, sizeof(buffer) / sizeof(buffer[0]), (LPARAM)buffer);
+				sscanf(buffer, "%d", _dwTimeout);
+				debug_printll("%s(%d)", buffer, *_dwTimeout);
+			}
+		}
+		return 0;
+	}
+
+	LRESULT c_recv_data_format_dlg::handle_message(UINT uMsg, WPARAM wParam, LPARAM lParam, bool& bHandled)
+	{
+		switch (uMsg) {
+
+		case WM_INITDIALOG:
+			::SetWindowText(m_hWnd, _bchar ? "设置字符解码格式" : "设置十六进制接收格式");
+			CenterWindow();
+
+			if (_bchar) {
+				SdkLayout::CControlUI* pCe = _layout.FindControl(_enc[*_dwEncoding].name);
+				if (pCe) {
+					debug_printll("%d:%s", *_dwEncoding, _enc[*_dwEncoding].name);
+					::SendMessage(*pCe, BM_SETCHECK, BST_CHECKED, 0);
+				}
+
+				::SendMessage(_layout.FindControl("timeout")->GetHWND(), WM_SETTEXT, 0, (LPARAM)(LPCTSTR)std::to_string(*_dwTimeout).c_str());
+			}
+			return 0;
+			break;
 		}
 		return __super::handle_message(uMsg, wParam, lParam, bHandled);
 	}

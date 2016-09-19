@@ -62,12 +62,42 @@ namespace Common {
 		DWORD* _dwAttr;
 	};
 
+	// 接收文字格式控制对话框
+	class c_recv_data_format_dlg : public c_dialog_builder
+	{
+	public:
+		c_recv_data_format_dlg(bool bchar, c_text_data_receiver::character_encoding_e* encoding, int* timeout, const c_text_data_receiver::encoding_t* enc, const int len)
+			: _bchar(bchar)
+			, _dwEncoding(encoding)
+			, _dwTimeout(timeout)
+			, _enc(enc)
+			, _encoding_list_len(len)
+		{
+		}
+
+	protected:
+		virtual LRESULT		handle_message(UINT uMsg, WPARAM wParam, LPARAM lParam, bool& bHandled);
+		virtual LPCTSTR		get_skin_xml() const override;
+		virtual LRESULT		on_command_ctrl(HWND hwnd, SdkLayout::CControlUI* ctrl, int code);
+		virtual DWORD		get_window_style() const { return WS_OVERLAPPEDWINDOW; }
+		virtual DWORD		get_window_ex_style() const override { return WS_EX_TOOLWINDOW; }
+		virtual void		on_final_message(HWND hwnd) { __super::on_final_message(hwnd); delete this; }
+
+	protected:
+		bool _bchar;
+		c_text_data_receiver::character_encoding_e* _dwEncoding;
+		int* _dwTimeout;
+		const c_text_data_receiver::encoding_t* _enc;
+		const int _encoding_list_len;
+	};
+
 	class CComWnd 
 		: public CWnd
 		, public i_timer
 		, public i_timer_period
 		, public IAcceleratorTranslator
 	{
+		friend class c_recv_data_format_dlg;
 		friend class c_send_data_format_dlg;
 	public:
 		CComWnd();
@@ -304,6 +334,8 @@ namespace Common {
 		bool				_b_recv_data_format_hex;
 		DWORD				_send_data_format_hex;
 		DWORD				_send_data_format_char;
+		c_text_data_receiver::character_encoding_e _recv_char_encoding;
+		int					_recv_char_timeout;
 
 		std::vector<i_data_receiver*> _data_receivers;
 
