@@ -1699,21 +1699,21 @@ namespace Common {
 		return 
 			_bchar ?
 			R"feifei(
-			<Window size="260,110">
-				<Font name = "Î¢ÈíÑÅºÚ" size = "12" default = "true" />
-				<Font name = "Î¢ÈíÑÅºÚ" size = "12"/>
+			<Window size="300,110">
+				<Font name="Î¢ÈíÑÅºÚ" size="12" default="true" />
+				<Font name="Î¢ÈíÑÅºÚ" size="12"/>
 				<Vertical>
 					<Horizontal>
-						<Container inset="5,5,5,5" height="110" width="130">
+						<Container inset="5,5,5,5" height="110" width="150">
 							<Group text="»»ÐÐ·ûÀàÐÍ"/>
 							<Vertical inset="15,20,5,5">
 								<Option name="nlt_crlf" text="»Ø³µ»»ÐÐ(\r\n)" style="group"/>
-								<Option name = "nlt_cr" text = "»Ø³µ(\r)" />
-								<Option name = "nlt_lf" text = "»»ÐÐ(\n)" />
-								<Option name = "nlt_none" text = "ºöÂÔ" />
+								<Option name="nlt_cr" text="»Ø³µ(\r)" />
+								<Option name="nlt_lf" text="»»ÐÐ(\n)" />
+								<Option name="nlt_none" text="ºöÂÔ" />
 							</Vertical>
 						</Container>
-						<Container inset="5,5,5,5" height="110" width="130">
+						<Container inset="5,5,5,5" height="110" width="150">
 							<Group text="×ªÒå×Ö·û"/>
 							<Vertical inset="15,20,5,5">
 								<Check name="escape_use" text="Ê¹ÓÃ×ªÒå×Ö·û" />
@@ -1725,9 +1725,9 @@ namespace Common {
 			)feifei"
 			:
 		R"feifei(
-<Window size="300,100">
-	<Font name = "Î¢ÈíÑÅºÚ" size = "12" default = "true" />
-	<Font name = "ºÚÌå" size = "20"/>
+<Window size="300,110">
+	<Font name="Î¢ÈíÑÅºÚ" size="12" default="true" />
+	<Font name="ºÚÌå" size="20"/>
 	<Vertical>
 		<Vertical>
 			<Control />
