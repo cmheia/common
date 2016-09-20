@@ -710,10 +710,19 @@ namespace Common{
 			switch (status) {
 
 			case BROKEN_SEQUENCE:
-				debug_printll("BROKEN_SEQUENCE pos=%d", pos);
+			case INVALID_LEAD:
+#ifdef _DEBUG
+				if (INVALID_LEAD == status) {
+					debug_printll("INVALID_LEAD pos=%d", pos);
+				}
+				else {
+					debug_printll("BROKEN_SEQUENCE pos=%d", pos);
+				}
+#endif
+				// BROKEN_SEQUENCE
 				// miss following byte(s)
 				// pos -> invalid lead
-				// [valid UTF-8 character]+, valid lead, byte* (lack of following byte), valid lead
+				// [valid codepoint]+, valid lead, byte* (lack of following byte), valid lead
 				// treat as invalid untile we meet next valid lead
 				// pos points to lead of broken codepoint
 				if (pos > 0) {
@@ -726,38 +735,37 @@ namespace Common{
 					stream += pos;
 					pos = 0; // make sure later code handle invalid byte(broken codepoint)
 				}
-				debug_puts("jump to case INVALID_LEAD");
+				//debug_puts("jump to case INVALID_LEAD");
 				// don't break here!
-			case INVALID_LEAD:
 				// pos -> invalid lead
-				// invalid lead, byte*, [valid lead (from case INVALID_LEAD)]
-				// valid lead, byte*, [valid lead (from case BROKEN_SEQUENCE)] -> the leading valid lead will be treat as invalid byte
-				if (pos == 0) {
-					// handle broken codepoint
-					do {
-						int i = 0;
-						do { // handle invalid byte(s) untile we meet a valid lead
-							// the first byte is invalid so we can use do{}while() loop
-							int printed = sprintf(current_buffer, "<%02X>", stream[i]);
-							if (printed != -1) {
-								current_buffer += printed;
-							}
-							else {
-								debug_printll("sprintf failed, %d, %p", i, current_buffer);
+				// [valid codepoint]+, invalid lead (too more following byte), byte*, [valid lead](case INVALID_LEAD)
+				// valid lead, byte*, [valid lead](from case BROKEN_SEQUENCE) -> the leading valid lead will be treat as invalid byte
+				// handler valid codepoint(s)
+				// handle broken codepoint
+				do {
+					stream += pos;
+					int i = 0;
+					do { // handle invalid byte(s) untile we meet a valid lead
+						// the first byte is invalid so we can use do{}while() loop
+						int printed = sprintf(current_buffer, "<%02X>", stream[i]);
+						if (printed != -1) {
+							current_buffer += printed;
+						}
+						else {
+							debug_printll("sprintf failed, %d, %p", i, current_buffer);
 #ifdef _DEBUG
-								break; // incase of sprintf failed
+							break; // incase of sprintf failed
 #endif
-							}
-							i++;
-						} while (!is_valid_lead(stream[i]) && i < MAX_INVALID_BYTE_PRINT_COUNT && !(processed + i > cb));
-						current_buffer[i] = 0; // null-terminated
-						current_buffer = print_buffer; // reset buffer pointer
-						_richedit->append_text(print_buffer, CP_UTF8);
-						processed += i;
-						stream += i;
-						continue; // it's time to handle valid codepoint(s)
-					} while (0);
-				}
+						}
+						i++;
+					} while (!is_valid_lead(stream[i]) && i < MAX_INVALID_BYTE_PRINT_COUNT && !(processed + i > cb));
+					current_buffer[i] = 0; // null-terminated
+					current_buffer = print_buffer; // reset buffer pointer
+					_richedit->append_text(print_buffer, CP_UTF8);
+					processed += i;
+					stream += i;
+					continue; // it's time to handle valid codepoint(s)
+				} while (0);
 				break;
 
 			case UTF8_OK:
