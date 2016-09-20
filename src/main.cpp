@@ -22,6 +22,43 @@ void com_unload_config(void)
 	delete comcfg;
 }
 
+#ifdef _DEBUG
+void init_log_env(LPSTR lpCmdLine)
+{
+	if (0 != strncmp("log", lpCmdLine, 3)) {
+		AllocConsole();
+		freopen("CONIN$", "r", stdin);
+		freopen("CONOUT$", "w", stdout);
+		freopen("CONOUT$", "w", stderr);
+		do {
+			HANDLE hStdout;
+			BOOL ok;
+
+			hStdout = GetStdHandle(STD_OUTPUT_HANDLE);
+
+			CONSOLE_SCREEN_BUFFER_INFO bInfo; 
+			GetConsoleScreenBufferInfo(hStdout, &bInfo);
+
+			COORD coord;
+			coord.X = GetSystemMetrics(SM_CXMIN) + 50;
+			coord.Y = GetSystemMetrics(SM_CYMIN);
+			// https://msdn.microsoft.com/en-us/library/windows/desktop/ms686044(v=vs.85).aspx
+			ok = SetConsoleScreenBufferSize(hStdout, coord);
+			printf("SM_C[XY]MIN = {%d, %d}\n", coord.X, coord.Y);
+
+			SMALL_RECT rc;
+			rc.Left = 0;
+			rc.Top = 0;
+			rc.Right = coord.X - 1;
+			rc.Bottom = coord.Y - 1;
+
+			// https://msdn.microsoft.com/en-us/library/windows/desktop/ms686125(v=vs.85).aspx
+			ok = SetConsoleWindowInfo(hStdout, ok, &rc);
+		} while (0);
+	}
+}
+#endif
+
 Common::c_the_app theApp;
 
 int CALLBACK WinMain(HINSTANCE hInstance,HINSTANCE hPrevInstance,LPSTR lpCmdLine,int nShowCmd)
@@ -30,35 +67,8 @@ int CALLBACK WinMain(HINSTANCE hInstance,HINSTANCE hPrevInstance,LPSTR lpCmdLine
 	LoadLibrary("RichEd20.dll");
 
 #ifdef _DEBUG
-	AllocConsole();
-	freopen("CONIN$", "r", stdin);
-	freopen("CONOUT$", "w", stdout);
-	freopen("CONOUT$", "w", stderr);
-	do {
-		HANDLE hStdout;
-		BOOL ok;
-
-		hStdout = GetStdHandle(STD_OUTPUT_HANDLE);
-
-		CONSOLE_SCREEN_BUFFER_INFO bInfo; 
-		GetConsoleScreenBufferInfo(hStdout, &bInfo);
-
-		COORD coord;
-		coord.X = GetSystemMetrics(SM_CXMIN) + 50;
-		coord.Y = GetSystemMetrics(SM_CYMIN);
-		// https://msdn.microsoft.com/en-us/library/windows/desktop/ms686044(v=vs.85).aspx
-		ok = SetConsoleScreenBufferSize(hStdout, coord);
-		printf("SM_C[XY]MIN = {%d, %d}\n", coord.X, coord.Y);
-
-		SMALL_RECT rc;
-		rc.Left = 0;
-		rc.Top = 0;
-		rc.Right = coord.X - 1;
-		rc.Bottom = coord.Y - 1;
-
-		// https://msdn.microsoft.com/en-us/library/windows/desktop/ms686125(v=vs.85).aspx
-		ok = SetConsoleWindowInfo(hStdout, ok, &rc);
-	} while (0);
+	init_log_env(lpCmdLine);
+	debug_printl("CmdLine:[%s]", lpCmdLine);
 #endif
 	debug_out(("程序已运行\n"));
 
