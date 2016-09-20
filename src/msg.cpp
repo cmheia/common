@@ -897,6 +897,20 @@ namespace Common {
 
 	void CComWnd::com_update_open_btn_text()
 	{
+		auto showcom = comcfg->get_key("app.title.showcom");
+		if (showcom->get_bool()) {
+			int cursel = ComboBox_GetCurSel(_hCP);
+			t_com_item* pi = (t_com_item*)(cursel == -1 ? NULL : ComboBox_GetItemData(_hCP, cursel));
+			if (pi) {
+				std::ostringstream ostr;
+				ostr << "COM" << pi->get_i() << (_comm.is_opened() ? " 已打开 - " : " 已关闭 - ");
+				if (auto item = comcfg->get_key("app.title.text")) {
+					ostr << item->val();
+				}
+				std::string str(ostr.str());
+				::SetWindowText(m_hWnd, str.c_str());
+			}
+		}
 		::SetWindowText(_hOpen, _comm.is_opened() ? "关闭(&W)" : "打开(&W)");
 	}
 
@@ -1336,7 +1350,7 @@ namespace Common {
 			pRE->SetFont(m_layout->GetManager()->GetFont(hFont));
 		};
 
-		if (auto item = comcfg->get_key("app.title")){
+		if (auto item = comcfg->get_key("app.title.text")) {
 			::SetWindowText(m_hWnd, item->val().c_str());
 		}
 		if (auto item = comcfg->get_key("app.icon")){
