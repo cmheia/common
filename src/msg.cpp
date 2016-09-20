@@ -167,12 +167,15 @@ namespace Common {
 		for(int i=0; aDataSize[i]; i++)
 			_databit_list.add(t_com_item(iDataSize[i], aDataSize[i]));
 
-
-
 		editor_recv_char()->Create(hWnd, "", WS_CHILD | WS_VISIBLE | WS_HSCROLL | WS_VSCROLL | ES_READONLY |
+			WS_BORDER |
 			ES_MULTILINE | ES_WANTRETURN | ES_AUTOHSCROLL | ES_AUTOVSCROLL ,
-			WS_EX_CLIENTEDGE,
+			0,
 			0,0,0,0, (HMENU)IDC_EDIT_RECV2);
+		DWORD dwStyle = ::GetWindowLongPtr(editor_recv_char()->GetHWND(), GWL_EXSTYLE);
+		dwStyle &= ~WS_EX_CLIENTEDGE;
+		::SetWindowLongPtr(editor_recv_char()->GetHWND(), GWL_EXSTYLE, dwStyle);
+
 		WNDPROC new_rich_proc = static_cast<WNDPROC>(_thunk_rich_edit.Stdcall(this, &CComWnd::RichEditProc));
 		_thunk_rich_edit_old_proc = SubclassWindow(*editor_recv_char(), new_rich_proc);
 		::ImmAssociateContext(*editor_recv_char(), nullptr);
@@ -1271,14 +1274,18 @@ namespace Common {
 		SdkLayout::CControlUI* p_main_wnd = m_layout->FindControl("main_wnd");
 		SdkLayout::CControlUI* p_recv_rich = m_layout->FindControl("fullscreen_recv_rich_wnd");
 
+		DWORD dwStyle = ::GetWindowLongPtr(editor_recv_char()->GetHWND(), GWL_STYLE);
 		if (full){
 			p_main_wnd->SetVisible(false);
 			p_recv_rich->SetVisible(true);
+			dwStyle &= ~WS_BORDER;
 		}
 		else{
 			p_recv_rich->SetVisible(false);
 			p_main_wnd->SetVisible(true);
+			dwStyle |= WS_BORDER;
 		}
+		::SetWindowLongPtr(editor_recv_char()->GetHWND(), GWL_STYLE, dwStyle);
 		::SetFocus(*editor_recv_char());
 	}
 
