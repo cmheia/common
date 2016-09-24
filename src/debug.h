@@ -26,15 +26,6 @@
 
 #define print_info(f, l) printf(_GULE_STRING(f) "(" _GULE_NUMBER(l) ")\t")
 #define debug_out(x) print_info(__FILE__, __LINE__); printf##x
-#else
-#define debug_printl(...)
-#define debug_printll(...)
-#define debug_printll2(...)
-#define debug_printf(...)
-#define debug_puts(x)
-
-#define debug_out(x) 
-#endif
 
 #define PrintLastError() do { \
 		DWORD dwErrNo = GetLastError(); \
@@ -48,9 +39,23 @@
 			MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT), \
 			(LPTSTR)&lpMsgBuf, \
 			0, NULL); \
-		debug_out((TEXT("error %d: %s\n"), dwErrNo, lpMsgBuf)); \
+		debug_printll(TEXT("error %d: %s\n"), dwErrNo, (TCHAR*)lpMsgBuf); \
 		LocalFree(lpMsgBuf); \
 } while (0)
+
+#else
+
+#define debug_printl(...)
+#define debug_printll(...)
+#define debug_printll2(...)
+#define debug_printf(...)
+#define debug_puts(x)
+
+#define debug_out(x)
+
+#define PrintLastError()
+
+#endif
 
 //////////////////////////////////////////////////////////////////////////
 // Smart Assert
