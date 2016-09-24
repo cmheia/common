@@ -1545,6 +1545,14 @@ namespace Common {
 
 	void CComWnd::save_to_config_file()
 	{
+		if (auto item = comcfg->get_key("app.config.saveonexit")) {
+			if (!item->get_bool()) {
+				debug_puts("²»±£´æÅäÖÃ");
+				return;
+			}
+		}
+		debug_puts("±£´æÅäÖÃ...");
+
 		comcfg->set_key("gui.fullscreen", _b_recv_char_edit_fullscreen);
 		comcfg->set_key("gui.simplemode", !!::IsDlgButtonChecked(m_hWnd, IDC_CHECK_SIMPLE));
 		comcfg->set_key("gui.topmost", !!::IsDlgButtonChecked(m_hWnd, IDC_CHK_TOP));
