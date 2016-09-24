@@ -234,7 +234,7 @@ namespace Common{
 		}
 		void set_char_encoding(character_encoding_e en) {
 			_char_decoder = _encoding_list[en].processor;
-			debug_printll("encoding:%d, decoder:%p", en, _char_decoder);
+			debug_printll("encoding:%s, decoder:%p", encoding_id_2_name(en), _char_decoder);
 		}
 		void set_char_timeout(int timeout) {
 			set_validity_interval(timeout);

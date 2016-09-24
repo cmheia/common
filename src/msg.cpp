@@ -440,7 +440,7 @@ namespace Common {
 				}
 				ReleaseDC(ud.hwnd, hdc);
 				::SendMessage(ud.hwnd, CB_SETDROPPEDWIDTH, nWidth, 0);
-				debug_out(("CB_SETDROPPEDWIDTH=%d\n", nWidth));
+				debug_printll("CB_SETDROPPEDWIDTH=%d", nWidth);
 			}
 		}
 
@@ -474,6 +474,7 @@ namespace Common {
 		t_com_item*  item = (t_com_item*)ComboBox_GetItemData(_hBR, ComboBox_GetCurSel(_hBR));
 		SMART_ASSERT((int)item > 0xffff).Fatal();
 		ssc.baud_rate = item->get_i();
+		debug_printll("baudrate=%d", item->get_i());
 
 		// parity
 		item = (t_com_item*)ComboBox_GetItemData(_hPA, ComboBox_GetCurSel(_hPA));
@@ -517,7 +518,7 @@ namespace Common {
 			}
 			ReleaseDC(ud.hwnd, hdc);
 			::SendMessage(ud.hwnd, CB_SETDROPPEDWIDTH, nWidth, 0);
-			debug_out(("CB_SETDROPPEDWIDTH=%d\n", nWidth));
+			debug_printll("CB_SETDROPPEDWIDTH=%d", nWidth);
 		}
 	}
 
@@ -1302,14 +1303,17 @@ namespace Common {
 		else if (uMsg == WM_KEYUP) {
 			if (wParam == VK_F8) {
 				::ShellExecute(m_hWnd, "open", _custom_cmd.c_str(), NULL, NULL, SW_SHOWNORMAL);
+				debug_printl("VK_F8");
 				return 0;
 			}
 			if (wParam == VK_F9) {
 				editor_recv_char()->clear();
+				debug_printl("VK_F9");
 				return 0;
 			}
 			if (wParam == VK_F12) {
 				com_openclose();
+				debug_printl("VK_F12");
 				return 0;
 			}
 		}
@@ -1317,11 +1321,13 @@ namespace Common {
 			if (wParam == VK_F11){
 				_b_recv_char_edit_fullscreen = !_b_recv_char_edit_fullscreen;
 				switch_rich_edit_fullscreen(_b_recv_char_edit_fullscreen);
+				debug_printl("VK_F11");
 				return 0;
 			}
 		}
 		else if(uMsg == WM_MBUTTONDOWN){
 			editor_recv_char()->clear();
+			debug_printl("WM_MBUTTONDOWN");
 			return 0;
 		}
 		return CallWindowProc(_thunk_rich_edit_old_proc, hWnd, uMsg, wParam, lParam);

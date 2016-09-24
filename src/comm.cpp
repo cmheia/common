@@ -104,11 +104,11 @@ namespace Common{
 		
 		// 在读写线程退出之前, 两个end均为激发状态
 		// 必须等到两个线程均退出工作状态才能有其它操作
-		debug_out(("等待 [读线程] 结束...\n"));
+		debug_puts("等待 [读线程] 结束...");
 		while (::WaitForSingleObject(_thread_read.hEventToExit, 0) == WAIT_OBJECT_0);
-		debug_out(("等待 [写线程] 结束...\n"));
+		debug_puts("等待 [写线程] 结束...");
 		while (::WaitForSingleObject(_thread_write.hEventToExit, 0) == WAIT_OBJECT_0);
-		debug_out(("等待 [事件线程] 结束...\n"));
+		debug_puts("等待 [事件线程] 结束...");
 		while (::WaitForSingleObject(_thread_event.hEventToExit, 0) == WAIT_OBJECT_0);
 
 		return true;
@@ -142,13 +142,13 @@ namespace Common{
 		DWORD dw,dw2;
 
 	_wait_for_work:
-		debug_out(("[事件线程] 就绪!\n"));
+		debug_puts("[事件线程] 就绪!");
 		dw = ::WaitForSingleObject(_thread_event.hEventToBegin, INFINITE);
 		SMART_ASSERT(dw == WAIT_OBJECT_0)(dw).Fatal();
 
-		debug_out(("[事件线程] 开始工作...\n"));
+		debug_puts("[事件线程] 开始工作...");
 		if (!is_opened()){
-			debug_out(("[事件线程] 没有工作, 退出中...\n"));
+			debug_puts("[事件线程] 没有工作, 退出中...");
 			::SetEvent(_thread_event.hEventToExit);
 			return 0;
 		}
@@ -176,7 +176,7 @@ namespace Common{
 					goto _restart;
 					break;
 				case WAIT_OBJECT_0 + 0:
-					debug_out(("[事件线程] 收到退出事件!\n"));
+					debug_puts("[事件线程] 收到退出事件!");
 					goto _restart;
 					break;
 				case WAIT_OBJECT_0 + 1:
@@ -216,13 +216,13 @@ namespace Common{
 		c_event_event_listener listener;
 
 	_wait_for_work:
-		debug_out(("[写线程] 就绪\n"));
+		debug_puts("[写线程] 就绪");
 		dw = ::WaitForSingleObject(_thread_write.hEventToBegin, INFINITE);
 		SMART_ASSERT(dw == WAIT_OBJECT_0)(dw).Fatal();
 		
-		debug_out(("[写线程] 开始工作...\n"));
+		debug_puts("[写线程] 开始工作...");
 		if (!is_opened()){
-			debug_out(("[写线程] 没有工作, 退出中...\n"));
+			debug_puts("[写线程] 没有工作, 退出中...");
 			::SetEvent(_thread_write.hEventToExit);
 			return 0;
 		}
@@ -232,10 +232,10 @@ namespace Common{
 		_event_listener.add_listener(listener, EV_TXEMPTY);
 
 	_get_packet:
-		debug_out(("[写线程] 取数据包中...\n"));
+		debug_puts("[写线程] 取数据包中...");
 		c_send_data_packet* psdp = _send_data.get();
 		if (psdp->type == csdp_type::csdp_alloc || psdp->type == csdp_type::csdp_local){
-			debug_out(("[写线程] 取得一个发送数据包, 长度为 %d 字节\n", psdp->cb));
+			debug_printll("[写线程] 取得一个发送数据包, 长度为 %d 字节", psdp->cb);
 
 			DWORD	nWritten = 0;		// 写操作一次写入的长度
 			int		nWrittenData;		// 当前循环总共写入长度
@@ -245,7 +245,7 @@ namespace Common{
 				if (bRet != FALSE){ // I/O is completed
 					bRet = ::GetOverlappedResult(_hComPort, &overlap, &nWritten, FALSE);
 					if (bRet){
-						debug_out(("[写线程] I/O completed immediately, bytes : %d\n", nWritten));
+						debug_printll("[写线程] I/O completed immediately, bytes : %d", nWritten);
 					}
 					else{
                         system_error("[写线程] GetOverlappedResult失败(I/O completed)!\n");
@@ -265,13 +265,13 @@ namespace Common{
 							goto _restart;
 							break;
 						case WAIT_OBJECT_0 + 0: // now we exit
-							debug_out(("[写线程] 收到退出事件!\n"));
+							debug_puts("[写线程] 收到退出事件!");
 							goto _restart;
 							break;
 						case WAIT_OBJECT_0 + 1: // the I/O operation is now completed
 							bRet = ::GetOverlappedResult(_hComPort, &overlap, &nWritten, FALSE);
 							if (bRet){
-								debug_out(("[写线程] 写入 %d 个字节!\n", nWritten));
+								debug_printll("[写线程] 写入 %d 个字节!", nWritten);
 							}
 							else{
                                 system_error("[写线程] GetOverlappedResult失败(I/O pending)!\n");
@@ -293,7 +293,7 @@ namespace Common{
 			goto _get_packet;
 		}
 		else if (psdp->type == csdp_type::csdp_exit){
-			debug_out(("[写线程] 收到退出事件!\n"));
+			debug_puts("[写线程] 收到退出事件!");
 			_send_data.release(psdp);
 			goto _restart;
 		}
@@ -325,13 +325,13 @@ namespace Common{
 		block_data = new unsigned char[kReadBufSize];
 
 	_wait_for_work:
-		debug_out(("[读线程] 就绪\n"));
+		debug_puts("[读线程] 就绪");
 		dw = ::WaitForSingleObject(_thread_read.hEventToBegin, INFINITE);
 		SMART_ASSERT(dw == WAIT_OBJECT_0)(dw).Fatal();
 
-		debug_out(("[读线程] 开始工作...\n"));
+		debug_puts("[读线程] 开始工作...");
 		if (!is_opened()){
-			debug_out(("[读线程] 没有工作, 退出中...\n"));
+			debug_puts("[读线程] 没有工作, 退出中...");
 			delete[] block_data;
 			::SetEvent(_thread_read.hEventToExit);
 			return 0;
@@ -353,7 +353,7 @@ namespace Common{
             system_error("[读线程] Wait失败!\n");
 			goto _restart;
 		case WAIT_OBJECT_0 + 0:
-			debug_out(("[读线程] 收到退出事件!\n"));
+			debug_puts("[读线程] 收到退出事件!");
 			goto _restart;
 		case WAIT_OBJECT_0 + 1:
 			break;
@@ -380,10 +380,10 @@ namespace Common{
 			if (bRet != FALSE){
 				bRet = ::GetOverlappedResult(_hComPort, &overlap, &nRead, FALSE);
 				if (bRet) {
-					debug_out(("[读线程] 读取 %d 字节, bRet==TRUE, nBytesToRead: %d\n", nRead, nBytesToRead));
+					debug_printll("[读线程] 读取 %d 字节, bRet==TRUE, nBytesToRead: %d", nRead, nBytesToRead);
 				}
 				else{
-                    system_error("[写线程] GetOverlappedResult失败!\n");
+                    system_error("[读线程] GetOverlappedResult失败!\n");
 					goto _restart;
 				}
 			}
@@ -396,15 +396,15 @@ namespace Common{
 					switch (::WaitForMultipleObjects(_countof(handles), &handles[0], FALSE, INFINITE))
 					{
 					case WAIT_FAILED:
-						debug_out(("[读线程] 等待失败!\n"));
+						debug_puts("[读线程] 等待失败!");
 						goto _restart;
 					case WAIT_OBJECT_0 + 0:
-						debug_out(("[读线程] 收到退出事件!\n"));
+						debug_puts("[读线程] 收到退出事件!");
 						goto _restart;
 					case WAIT_OBJECT_0 + 1:
 						bRet = ::GetOverlappedResult(_hComPort, &overlap, &nRead, FALSE);
 						if (bRet){
-							debug_out(("[读线程] 读取 %d 字节, bRet==FALSE\n", nRead));
+							debug_printll("[读线程] 读取 %d 字节, bRet==FALSE", nRead);
 						}
 						else{
                             system_error("[读线程] GetOverlappedResult失败!\n");
