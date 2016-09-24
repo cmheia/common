@@ -18,6 +18,14 @@ void com_load_config(void)
 
 void com_unload_config(void)
 {
+	if (auto item = comcfg->get_key("app.config.saveonexit")) {
+		if (!item->get_bool()) {
+			debug_puts("²»±£´æÅäÖÃ");
+			delete comcfg;
+			return;
+		}
+	}
+	debug_puts("±£´æÅäÖÃ...");
 	comcfg->SaveFile();
 	delete comcfg;
 }
