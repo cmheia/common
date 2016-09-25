@@ -319,6 +319,7 @@ namespace Common {
 		HWND _hStatus, _hOpen;
 		Window::c_rich_edit	_recv_char_edit;
 		bool				_b_recv_char_edit_fullscreen;
+		bool				_b_save_position;
 		Window::c_edit		_recv_hex_edit;
 		Window::c_edit		_send_edit;
 		sdklayout*			m_layout;

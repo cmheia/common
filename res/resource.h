@@ -90,7 +90,7 @@
 #define MENU_MORE_PINCTRL               40007
 #define MENU_OTHER_DEVICEMGR            40008
 #define MENU_OTHER_CUSTOM_CMD           40009
-#define ID_POPUPMENU_40011              40011
+#define MENU_REMEMBER_POSITION          40011
 #define MENU_OTHER_STR2HEX              40012
 #define ID_POPUPMENU_40013              40013
 #define MENU_OTHER_MONITOR              40014

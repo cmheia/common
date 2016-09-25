@@ -63,6 +63,7 @@ namespace Common {
 		, m_hAccel(0)
 	{
 		_b_recv_char_edit_fullscreen = false;
+		_b_save_position = false;
 		_b_send_data_format_hex = false; // 字符
 		_send_data_format_hex   = SendDataFormatHex::sdfh_kNone;
 		_send_data_format_char  = SendDataFormatChar::sdfc_kNone;
@@ -561,6 +562,9 @@ namespace Common {
             return 0;
         }
 
+		case MENU_REMEMBER_POSITION:
+			_b_save_position = !_b_save_position;
+			break;
 		}
 		return 0;
 	}
@@ -633,6 +637,7 @@ namespace Common {
 				HMENU hMenu;
 				::GetCursorPos(&pt);
 				hMenu = ::GetSubMenu(::LoadMenu(theApp.instance(), MAKEINTRESOURCE(IDR_MENU_MORE)), 0);
+				::CheckMenuItem(hMenu, MENU_REMEMBER_POSITION, _b_save_position ? MF_CHECKED : MF_UNCHECKED);
 				::TrackPopupMenu(hMenu, TPM_LEFTALIGN|TPM_LEFTBUTTON, pt.x, pt.y, 0, *this, NULL);
 				return 0;
 			}
@@ -1436,6 +1441,7 @@ namespace Common {
 			};
 
 			pos = item->get_int();
+			_b_save_position = (-1 == pos);
 			if (-1 == pos) {
 				RECT rc;
 				::GetWindowRect(m_hWnd, &rc);
@@ -1607,6 +1613,20 @@ namespace Common {
 		comcfg->set_key("gui.simplemode", !!::IsDlgButtonChecked(m_hWnd, IDC_CHECK_SIMPLE));
 		comcfg->set_key("gui.topmost", !!::IsDlgButtonChecked(m_hWnd, IDC_CHK_TOP));
 		comcfg->set_key("gui.autoclr", !!::IsDlgButtonChecked(m_hWnd, IDC_CHK_CLR));
+
+		if (_b_save_position) {
+			comcfg->set_key("gui.wnd.position.init", -1);
+			RECT rc;
+			char config[32];
+			::GetWindowRect(m_hWnd, &rc);
+			snprintf(config, sizeof config, "%d,%d", rc.left, rc.top);
+			comcfg->set_key("gui.wnd.position.pos", config);
+			snprintf(config, sizeof config, "%d,%d", rc.right - rc.left, rc.bottom - rc.top);
+			comcfg->set_key("gui.wnd.position.size", config);
+		}
+		else {
+			comcfg->set_key("gui.wnd.position.init", 0);
+		}
 
 		// 数据发送格式设置
 		comcfg->set_key("comm.send.format", _b_send_data_format_hex ? "hex" : "char");
