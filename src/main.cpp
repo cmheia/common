@@ -84,7 +84,6 @@ int CALLBACK WinMain(HINSTANCE hInstance,HINSTANCE hPrevInstance,LPSTR lpCmdLine
 
 	Common::CComWnd maindlg;
 	maindlg.Create(nullptr, MAKEINTRESOURCE(IDD_DLG_MAIN));
-	maindlg.CenterWindow();
 	maindlg.ShowWindow();
 
 	Common::CWindowManager::MessageLoop();

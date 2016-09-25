@@ -146,6 +146,66 @@ void CWnd::CenterWindow()
     ::SetWindowPos(m_hWnd, NULL, xLeft, yTop, -1, -1, SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE);
 }
 
+void CWnd::MoveToCorner(int corner)
+{
+	if (corner < 1 || 4 < corner) {
+		CenterWindow();
+		return;
+	}
+
+	assert(::IsWindow(m_hWnd));
+	assert((GetWindowStyle(m_hWnd) & WS_CHILD) == 0);
+
+	HWND hWnd = *this;
+	// Multiple Display Monitors
+	MONITORINFOEX mi;
+	mi.cbSize = sizeof(mi);
+	::GetMonitorInfo(::MonitorFromWindow(hWnd, MONITOR_DEFAULTTONEAREST), &mi);
+	debug_printl("%s", mi.szDevice);
+
+	RECT rcTarget;
+	HWND hWndOwner = ::GetWindowOwner(m_hWnd);
+	if (hWndOwner != NULL) {
+		hWnd = hWndOwner;
+	}
+	if (hWndOwner == NULL) {
+		rcTarget = mi.rcWork;
+	}
+	else {
+		::GetWindowRect(hWndOwner, &rcTarget);
+	}
+
+	RECT rcWnd;
+	::GetWindowRect(m_hWnd, &rcWnd);
+	int winw = rcWnd.right - rcWnd.left;
+	int winh = rcWnd.bottom - rcWnd.top;
+
+	// Find dialog's upper left based on rcTarget
+	int x = 0;
+	int y = 0;
+
+	switch (corner) {
+
+	case 3:
+		// bottom left
+		y = rcTarget.bottom - rcTarget.top + ::GetSystemMetrics(SM_CYFRAME) - winh;
+	case 1:
+		// top left
+		x = 0 - ::GetSystemMetrics(SM_CXFRAME);
+	break;
+
+	case 4:
+		// bottom right
+		y = rcTarget.bottom - rcTarget.top + ::GetSystemMetrics(SM_CYFRAME) - winh;
+	case 2:
+		// top right
+		x = rcTarget.right - rcTarget.left + ::GetSystemMetrics(SM_CXFRAME) - winw;
+	break;
+	}
+
+	::SetWindowPos(m_hWnd, HWND_TOP, x, y, 0, 0, SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE);
+}
+
 bool CWnd::RegisterWindowClass()
 {
     WNDCLASS wc = { 0 };

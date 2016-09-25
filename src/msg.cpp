@@ -1424,6 +1424,50 @@ namespace Common {
 			switch_reset_counter(item->get_bool());
 		}
 
+		// window position
+		int pos = 0;
+		if (auto item = comcfg->get_key("gui.wnd.position.init")) {
+			auto string_to_xy = [](const std::string & s, POINT &pt) {
+				if (!s.length()) {
+					return -1;
+				}
+				int ret = sscanf(s.c_str(), "%d,%d", &(pt.x), &(pt.y));
+				return ret;
+			};
+
+			pos = item->get_int();
+			if (-1 == pos) {
+				RECT rc;
+				::GetWindowRect(m_hWnd, &rc);
+				int x = rc.left;
+				int y = rc.top;
+				int cx = rc.right - rc.left;
+				int cy = rc.bottom - rc.top;
+				if (auto item = comcfg->get_key("gui.wnd.position.pos")) {
+					POINT pt;
+					string_to_xy(item->val(), pt);
+					x = pt.x;
+					y = pt.y;
+				}
+				if (auto item = comcfg->get_key("gui.wnd.position.size")) {
+					POINT pt;
+					string_to_xy(item->val(), pt);
+					cx = pt.x;
+					cy = pt.y;
+				}
+				if (cx < 550) {
+					cx = 550;
+				}
+				if (cy < 500) {
+					cy = 500;
+				}
+				::SetWindowPos(m_hWnd, NULL, x, y, cx, cy, SWP_NOZORDER | SWP_NOACTIVATE);
+			}
+			else {
+				MoveToCorner(pos);
+			}
+		}
+
 		// 数据发送格式设置
 		if (auto item = comcfg->get_key("comm.send.format")){
 			switch_send_data_format(true, item->val() == "hex");
