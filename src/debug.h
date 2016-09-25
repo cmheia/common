@@ -5,24 +5,23 @@
 
 #define _GULE_NUMBER(num) #num
 #define _GULE_STRING(string) string
-#define _DEBUG_FILE_LINE(file, line) _GULE_STRING(file) "(" _GULE_NUMBER(line) ")\t"
-#define _DEBUG_FILE_LINE_FUNC(file, line, func) _GULE_STRING(file) "(" _GULE_NUMBER(line) ")" _GULE_STRING(func) "\t"
+#define _DEBUG_FILE_LINE(file, line) _GULE_STRING(file) "(" _GULE_NUMBER(line) ")"
+#define _DEBUG_FILE_LINE_FUNC(file, line, func) _GULE_STRING(file) "(" _GULE_NUMBER(line) ")" _GULE_STRING(func)
 
 #if DETAIL_PRINT
 #	define _DEBUG_STRING_FILE_LINE _DEBUG_FILE_LINE(__FILE__, __LINE__)
 #	define _DEBUG_STRING_FILE_LINE_FUNC _DEBUG_FILE_LINE_FUNC(__FILE__, __LINE__, __FUNCTION__)
-#	define _DEBUG_STRING_FILE_LINE_FUNC_NEWL _DEBUG_FILE_LINE_FUNC(__FILE__, __LINE__, __FUNCTION__) "\n\t"
 #else
 #	define _DEBUG_STRING_FILE_LINE
 #	define _DEBUG_STRING_FILE_LINE_FUNC
-#	define _DEBUG_STRING_FILE_LINE_FUNC_NEWL
 #endif
 
-#define debug_printl(fmt, ...) printf(_DEBUG_STRING_FILE_LINE fmt "\n", __VA_ARGS__)
-#define debug_printll(fmt, ...) printf(_DEBUG_STRING_FILE_LINE_FUNC fmt "\n", __VA_ARGS__)
-#define debug_printll2(fmt, ...) printf(_DEBUG_STRING_FILE_LINE_FUNC_NEWL fmt "\n", __VA_ARGS__)
-#define debug_printf(...) printf(_DEBUG_STRING_FILE_LINE __VA_ARGS__)
-#define debug_puts(x) puts(_DEBUG_STRING_FILE_LINE_FUNC x)
+#define debug_printl(fmt, ...) printf(_DEBUG_STRING_FILE_LINE "\t" fmt "\n", __VA_ARGS__)
+#define debug_printll(fmt, ...) printf(_DEBUG_STRING_FILE_LINE_FUNC "\t" fmt "\n", __VA_ARGS__)
+#define debug_printlll(fmt, ...) do {SYSTEMTIME t; GetLocalTime(&t); printf(_DEBUG_STRING_FILE_LINE_FUNC " %02d:%03d\t" fmt "\n", t.wSecond, t.wMilliseconds, __VA_ARGS__);} while(0)
+#define debug_printll2(fmt, ...) printf(_DEBUG_STRING_FILE_LINE_FUNC "\n\t" fmt "\n", __VA_ARGS__)
+#define debug_printf(...) printf(_DEBUG_STRING_FILE_LINE "\t" __VA_ARGS__)
+#define debug_puts(x) puts(_DEBUG_STRING_FILE_LINE_FUNC "\t" x)
 
 #define print_info(f, l) printf(_GULE_STRING(f) "(" _GULE_NUMBER(l) ")\t")
 #define debug_out(x) print_info(__FILE__, __LINE__); printf##x
@@ -47,6 +46,7 @@
 
 #define debug_printl(...)
 #define debug_printll(...)
+#define debug_printlll(...)
 #define debug_printll2(...)
 #define debug_printf(...)
 #define debug_puts(x)
