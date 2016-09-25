@@ -18,7 +18,7 @@
 
 #define debug_printl(fmt, ...) printf(_DEBUG_STRING_FILE_LINE "\t" fmt "\n", __VA_ARGS__)
 #define debug_printll(fmt, ...) printf(_DEBUG_STRING_FILE_LINE_FUNC "\t" fmt "\n", __VA_ARGS__)
-#define debug_printlll(fmt, ...) do {SYSTEMTIME t; GetLocalTime(&t); printf(_DEBUG_STRING_FILE_LINE_FUNC " %02d:%03d\t" fmt "\n", t.wSecond, t.wMilliseconds, __VA_ARGS__);} while(0)
+#define debug_printlll(fmt, ...) do {SYSTEMTIME t; GetLocalTime(&t); printf(_DEBUG_STRING_FILE_LINE_FUNC " %02d.%03d\t" fmt "\n", t.wSecond, t.wMilliseconds, __VA_ARGS__);} while(0)
 #define debug_printll2(fmt, ...) printf(_DEBUG_STRING_FILE_LINE_FUNC "\n\t" fmt "\n", __VA_ARGS__)
 #define debug_printf(...) printf(_DEBUG_STRING_FILE_LINE "\t" __VA_ARGS__)
 #define debug_puts(x) puts(_DEBUG_STRING_FILE_LINE_FUNC "\t" x)

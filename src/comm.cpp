@@ -146,12 +146,12 @@ namespace Common{
 		dw = ::WaitForSingleObject(_thread_event.hEventToBegin, INFINITE);
 		SMART_ASSERT(dw == WAIT_OBJECT_0)(dw).Fatal();
 
-		debug_puts("[事件线程] 开始工作...");
 		if (!is_opened()){
 			debug_puts("[事件线程] 没有工作, 退出中...");
 			::SetEvent(_thread_event.hEventToExit);
 			return 0;
 		}
+		debug_puts("[事件线程] 开始工作...");
 
 		c_overlapped o(true, false);
 
@@ -220,12 +220,12 @@ namespace Common{
 		dw = ::WaitForSingleObject(_thread_write.hEventToBegin, INFINITE);
 		SMART_ASSERT(dw == WAIT_OBJECT_0)(dw).Fatal();
 		
-		debug_puts("[写线程] 开始工作...");
 		if (!is_opened()){
 			debug_puts("[写线程] 没有工作, 退出中...");
 			::SetEvent(_thread_write.hEventToExit);
 			return 0;
 		}
+		debug_puts("[写线程] 开始工作...");
 
 		c_overlapped overlap(false, false);
 		
@@ -329,13 +329,13 @@ namespace Common{
 		dw = ::WaitForSingleObject(_thread_read.hEventToBegin, INFINITE);
 		SMART_ASSERT(dw == WAIT_OBJECT_0)(dw).Fatal();
 
-		debug_puts("[读线程] 开始工作...");
 		if (!is_opened()){
 			debug_puts("[读线程] 没有工作, 退出中...");
 			delete[] block_data;
 			::SetEvent(_thread_read.hEventToExit);
 			return 0;
 		}
+		debug_printll("[读线程] 开始工作...kReadBufSize:%d", kReadBufSize);
 
 		c_overlapped overlap(false, false);
 

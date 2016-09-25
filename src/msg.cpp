@@ -17,7 +17,7 @@ namespace Common {
 	std::string CComWnd::c_comport::get_id_and_name() const
 	{
 		char idstr[17] = {0};
-		_snprintf(idstr, sizeof(idstr), "COM%-13d", _i);
+		snprintf(idstr, sizeof(idstr), "COM%-13d", _i);
 		std::stringstream ss;
 		ss << idstr << "\t\t" << _s;
 		return std::string(ss.str());
@@ -893,7 +893,7 @@ namespace Common {
 		va_list va;
 		char smsg[1024] = { 0 };
 		va_start(va, fmt);
-		_vsnprintf(smsg, sizeof(smsg), fmt, va);
+		vsnprintf(smsg, sizeof(smsg), fmt, va);
 		va_end(va);
 
         ::SetWindowText(_hStatus, smsg);
@@ -921,7 +921,7 @@ namespace Common {
 	void CComWnd::update_timer(int h, int m, int s)
 	{
 		char tstr[9];
-		sprintf(tstr, "%02d:%02d:%02d", h, m, s);
+		snprintf(tstr, sizeof tstr, "%02d:%02d:%02d", h, m, s);
 		SendMessage(kUpdateTimer, 0, LPARAM(tstr));
 	}
 

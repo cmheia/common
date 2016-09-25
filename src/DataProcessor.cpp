@@ -872,7 +872,7 @@ namespace Common{
 	void c_text_data_receiver::receive(const unsigned char* ba, int cb)
 	{
 		for (; cb > 0;){
-			debug_printll("glance:%02X, len:%d, _pre_proc:%p", *ba, cb, _pre_proc);
+			debug_printll("glance:%02X, len:%d, _pre_proc:%p", *ba, cb, (void *)_pre_proc);
 			if (_pre_proc){// 可能处理后cb==0, 所以不管process的返回值
 				// c_*_processor::process_some 返回真才能满足上一行的 if 判断从而执行到这里
 				eProcessType more = process(_pre_proc, kMore, &ba, &cb, &_pre_proc);

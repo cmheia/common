@@ -34,7 +34,9 @@ void com_unload_config(void)
 void init_log_env(LPSTR lpCmdLine)
 {
 	if (0 != strncmp("log", lpCmdLine, 3)) {
-		AllocConsole();
+		if (!AllocConsole()) {
+			return;
+		}
 		freopen("CONIN$", "r", stdin);
 		freopen("CONOUT$", "w", stdout);
 		freopen("CONOUT$", "w", stderr);
@@ -48,10 +50,11 @@ void init_log_env(LPSTR lpCmdLine)
 			GetConsoleScreenBufferInfo(hStdout, &bInfo);
 
 			COORD coord;
-			coord.X = GetSystemMetrics(SM_CXMIN) + 50;
-			coord.Y = GetSystemMetrics(SM_CYMIN);
+			coord.X = GetSystemMetrics(SM_CXMIN) + 30;
+			coord.Y = GetSystemMetrics(SM_CYMIN) + 30;
 			// https://msdn.microsoft.com/en-us/library/windows/desktop/ms686044(v=vs.85).aspx
 			ok = SetConsoleScreenBufferSize(hStdout, coord);
+
 			printf("SM_C[XY]MIN = {%d, %d}\n", coord.X, coord.Y);
 
 			SMALL_RECT rc;
@@ -62,6 +65,19 @@ void init_log_env(LPSTR lpCmdLine)
 
 			// https://msdn.microsoft.com/en-us/library/windows/desktop/ms686125(v=vs.85).aspx
 			ok = SetConsoleWindowInfo(hStdout, ok, &rc);
+
+			// top left
+			char console_title[32];
+			SYSTEMTIME sys_time;
+
+			GetLocalTime(&sys_time);
+			srand(sys_time.wSecond * 1000 + sys_time.wMilliseconds);
+			snprintf(console_title, sizeof console_title, "common-%08X", rand());
+			SetConsoleTitle(console_title);
+			Sleep(10);
+			HWND console_hwnd = ::FindWindow("ConsoleWindowClass", console_title);
+			printf("console_hwnd:%08X\n", (unsigned int)console_hwnd);
+			::SetWindowPos(console_hwnd, HWND_TOP, 0 - 50 - ::GetSystemMetrics(SM_CXFRAME), 0, 0, 0, SWP_NOSIZE);
 		} while (0);
 	}
 }
@@ -92,8 +108,10 @@ int CALLBACK WinMain(HINSTANCE hInstance,HINSTANCE hPrevInstance,LPSTR lpCmdLine
 
 	debug_out(("≥Ã–Ú“—Ω· ¯\n"));
 #ifdef _DEBUG
-	Sleep(500);
-	FreeConsole();
+	if (0 != strncmp("log", lpCmdLine, 3)) {
+		Sleep(500);
+		FreeConsole();
+	}
 #endif
 	MessageBeep(MB_OK);
 	return 0;

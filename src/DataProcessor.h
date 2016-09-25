@@ -168,6 +168,12 @@ namespace Common{
 		{
 			_validity_timer.set_period(100);
 			_validity_timer.set_period_timer(this);
+			debug_printll("_proc_ascii:%p", (void *)_proc_ascii);
+			debug_printll("_proc_byte:%p", (void *)_proc_byte);
+			debug_printll("_proc_crlf:%p", (void *)_proc_crlf);
+			debug_printll("_proc_escape:%p", (void *)_proc_escape);
+			debug_printll("_proc_gb2312:%p", (void *)_proc_gb2312);
+			debug_printll("_proc_unicode:%p", (void *)_proc_unicode);
 		}
 
 		enum character_encoding_e {
