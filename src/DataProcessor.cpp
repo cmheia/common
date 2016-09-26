@@ -616,7 +616,7 @@ namespace Common{
 		char print_buffer[MAX_INVALID_BYTE_PRINT_BUFFER];
 		char *current_buffer = print_buffer;
 
-		if (kNoMore != type) { // 前面有缓存, 此处应优先处理
+		if (buffered_count) { // 前面有缓存, 此处应优先处理
 			debug_printll("buffered_count=%d", buffered_count);
 			utf_error status;
 			u8_mem *u8 = static_cast<u8_mem *>(static_cast<void*>(&decode_buffer));
@@ -650,45 +650,45 @@ namespace Common{
 							}
 							i++;
 						} while (i < buffered_count);
-						current_buffer[i] = 0; // null-terminated
-						reset_buffer();
+						current_buffer[0] = 0; // null-terminated
 						debug_printll("timeout:flush %d bytes: \"%s\"", buffered_count, print_buffer);
+						reset_buffer();
 						_richedit->append_text(print_buffer, CP_UTF8);
 					} while (0);
 					*pn = 0;
 					return kNoMore;
 				}
-
-				do {
-					int unprocessed = cb - processed;
+				else {
+					// buffer wanted byte(s)
+					int depth = character_depth(u8->u8.str[0]);
+					int max_buffer_count = min(depth - buffered_count, cb);
 					int i = 0;
-					do {
+					while (i < max_buffer_count && !is_valid_lead(stream[i])) {
 						// handle invalid byte(s) untile we meet a valid lead or '\0'
 						// the first byte is valid lead
 						u8->u8.str[i + buffered_count] = stream[i];
 						i++;
-					} while (!is_valid_lead(stream[i]) && i < unprocessed);
+					}
 					//memcpy(u8->u8.str + buffered_count, stream, unprocessed);
 					buffered_count += i;
-					processed += i;
+					processed += i; // !!!
 					stream += i;
 					cb -= i;
-					debug_printll("%d bytes eaten, new cb:%d", i, cb);
-				} while (0);
-				// is valid codepoint?
-				//int is_not_ascii = character_depth(u8->u8.str);
-				pos = is_stream_utf8_compliant(u8->u8.str, buffered_count, status);
-				if (UTF8_OK != status) {
-					debug_printll("codepoint not buffered, remain %d bytes", cb);
-					ret = kMore; // request to be next handle
-					break;
+					debug_printll("wanted:%d, %d bytes eaten, new cb:%d", depth - buffered_count, i, cb);
+					if (depth != buffered_count) {
+						debug_printll("codepoint not buffered, remain %d bytes", cb);
+						ret = kMore; // request to be next handle
+						break;
+					}
+					else {
+						debug_puts("jump to case UTF8_OK");
+					}
 				}
-				else {
-					debug_puts("jump to case UTF8_OK");
-				}
+				// don't break here!
 
 			case UTF8_OK: // 理想状况是缓存的字节刚好凑成一个 UTF-8 字符
 				debug_printll("codepoint buffered, remain %d bytes", cb);
+				SMART_ASSERT('\0' == u8->u8.str[buffered_count]).Fatal(); // should be null-terminated
 				_richedit->append_text((const char*)u8->u8.str, CP_UTF8);
 				reset_buffer();
 				break;
@@ -705,7 +705,7 @@ namespace Common{
 				break;
 			}
 			utf_error status;
-			int pos = is_stream_utf8_compliant(stream, cb - processed, status);
+			int pos = is_stream_utf8_compliant(stream, cb, status); // !!!unintelligible text
 
 			switch (status) {
 
@@ -722,13 +722,13 @@ namespace Common{
 				// BROKEN_SEQUENCE
 				// miss following byte(s)
 				// pos -> invalid lead
-				// [valid codepoint]+, valid lead, byte* (lack of following byte), valid lead
+				// [valid codepoint]*, valid lead, byte* (lack of following byte), valid lead
 				// treat as invalid untile we meet next valid lead
 				// pos points to lead of broken codepoint
 				if (pos > 0) {
 					// handle leading valid codepoint(s)
 					unsigned char backup = stream[pos];
-					stream[pos] = 0;
+					stream[pos] = 0; // null-terminated
 					_richedit->append_text((const char*)stream, CP_UTF8);
 					stream[pos] = backup;
 					processed += pos;
@@ -743,9 +743,10 @@ namespace Common{
 				// handler valid codepoint(s)
 				// handle broken codepoint
 				do {
-					stream += pos;
 					int i = 0;
-					do { // handle invalid byte(s) untile we meet a valid lead
+					int max_print = min(MAX_INVALID_BYTE_PRINT_COUNT, cb - processed + 1);
+					do {
+						// handle invalid byte(s) untile we meet a valid lead
 						// the first byte is invalid so we can use do{}while() loop
 						int printed = sprintf(current_buffer, "<%02X>", stream[i]);
 						if (printed != -1) {
@@ -758,8 +759,8 @@ namespace Common{
 #endif
 						}
 						i++;
-					} while (!is_valid_lead(stream[i]) && i < MAX_INVALID_BYTE_PRINT_COUNT && !(processed + i > cb));
-					current_buffer[i] = 0; // null-terminated
+					} while (i < max_print && !is_valid_lead(stream[i]));
+					current_buffer[0] = 0; // null-terminated
 					current_buffer = print_buffer; // reset buffer pointer
 					_richedit->append_text(print_buffer, CP_UTF8);
 					processed += i;
@@ -771,6 +772,7 @@ namespace Common{
 			case UTF8_OK:
 				// pos -> valid lead (from case UTF8_OK)
 				_richedit->append_text((const char*)stream, CP_UTF8);
+				SMART_ASSERT('\0' == stream[cb]).Fatal(); // should be null-terminated
 				processed += pos;
 				stream += pos;
 				debug_printll("perfect u8, %d bytes", cb);
@@ -782,7 +784,7 @@ namespace Common{
 				if (pos > 0) {
 					// handle leading valid codepoint(s)
 					unsigned char backup = stream[pos];
-					stream[pos] = 0;
+					stream[pos] = 0; // null-terminated
 					_richedit->append_text((const char*)stream, CP_UTF8);
 					stream[pos] = backup;
 					processed += pos;
@@ -795,7 +797,8 @@ namespace Common{
 				 * 从而继续调用本函数, 那么是否可以不缓存剩余的这些字节片段呢？
 				 * *** 这里缓存未完整到达的字符应该是为了等下一条读数据消息到来后再尝试拼接在一起, 所以上面的代码需要执行拼接工作
 				 */
-				/*else if (pos == 0)*/ { // most likely when runing in low baudrate such like 9600
+				/*else if (pos == 0)*/ {
+					// most likely when runing in low baudrate such like 9600
 					int unprocessed = cb - processed;
 					debug_printll("processed %d bytes", processed);
 #ifdef _DEBUG
@@ -805,7 +808,6 @@ namespace Common{
 					else
 #endif
 					{
-						debug_printll("buffer incomplete tail %d bytes", unprocessed);
 						u8_mem *u8 = static_cast<u8_mem *>(static_cast<void*>(&decode_buffer));
 						int i = 0;
 						do {
@@ -813,11 +815,12 @@ namespace Common{
 							// the first byte is valid lead
 							u8->u8.str[i] = stream[i];
 							i++;
-						} while (!is_valid_lead(stream[i]) && i < unprocessed);
+						} while (i < unprocessed);
 						//memcpy(u8->u8.str + buffered_count, stream, unprocessed);
 						buffered_count += i;
 						processed += i;
 						//stream += i; // unnecessary, because we will break and than return
+						debug_printll("buffer incomplete tail %d bytes, %d wanted", unprocessed, character_depth(u8->u8.str[0]) - buffered_count);
 					}
 				}
 				ret = kMore; // request to be next handle
@@ -837,7 +840,7 @@ namespace Common{
 			// inform caller(c_text_data_receiver::receive) that validity interval should be count.
 			;
 		}
-		debug_printll("ret:%d", ret);
+		debug_printll("ret:%d, processed:%d", ret, processed);
 		return ret;
 	}
 
@@ -863,16 +866,15 @@ namespace Common{
 				// 启动超时计数, 结束时调用 _pre_proc
 				start_validity_ticker();
 			}
-			else {
-				stop_validity_ticker();
-			}
 		}
 	}
 
 	void c_text_data_receiver::receive(const unsigned char* ba, int cb)
 	{
+		static int receive_counter = 0;
+		receive_counter += cb;
 		for (; cb > 0;){
-			debug_printll("glance:%02X, len:%d, _pre_proc:%p", *ba, cb, (void *)_pre_proc);
+			debug_printll("%02X%02X%02X%02X%02X%02X, len:%d, r_cnt:%d, _pre_proc:%p", ba[0], ba[1], ba[2], ba[3], ba[4], ba[5], cb, receive_counter, (void *)_pre_proc);
 			if (_pre_proc){// 可能处理后cb==0, 所以不管process的返回值
 				// c_*_processor::process_some 返回真才能满足上一行的 if 判断从而执行到这里
 				eProcessType more = process(_pre_proc, kMore, &ba, &cb, &_pre_proc);
