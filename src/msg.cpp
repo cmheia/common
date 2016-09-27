@@ -823,11 +823,26 @@ namespace Common {
 				return 0;
 			}
 			break;
+		// 暂停显示
+		case IDC_BTN_STOPDISP:
+			if (code == BN_CLICKED) {
+				debug_puts("IDC_BTN_STOPDISP");
+				if (1 < _data_receivers.size()) {
+					_data_receivers.erase(_data_receivers.begin());
+					_data_receivers.erase(_data_receivers.begin());
+					::SetWindowText(GetDlgItem(m_hWnd, IDC_BTN_STOPDISP), _T("继续显示(&D)"));
+				}
+				else {
+					_data_receivers.insert(_data_receivers.begin(), &_text_data_receiver);
+					_data_receivers.insert(_data_receivers.begin(), &_hex_data_receiver);
+					::SetWindowText(GetDlgItem(m_hWnd, IDC_BTN_STOPDISP), _T("暂停显示(&D)"));
+				}
+			}
+			break;
 		// 清空计数
 		case IDC_CHK_CLR:
-			if (code == BN_CLICKED){
+			if (code == BN_CLICKED) {
 				_b_reset_counter = !_b_reset_counter;
-				return 0;
 			}
 			break;
 		// 置顶 && 简洁模式
