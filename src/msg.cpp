@@ -259,7 +259,9 @@ namespace Common {
 		init_from_config_file();
 
 		// 欢迎语
-		update_status("欢迎使用 Common串口调试工具! Enjoy! :-)");
+		if (!_comm.is_opened()) {
+			update_status("欢迎使用 Common串口调试工具! Enjoy! :-)");
+		}
 
 		com_lock_ui_panel(_comm.is_opened());
 		return 0;
@@ -740,9 +742,17 @@ namespace Common {
 					_text_data_receiver.get_encoding_list(),
 					_text_data_receiver.get_encoding_list_len());
 				prdf->do_modal(*this);
+#define RECV_CHAR_TIMEOUT_MIN 10
+#define RECV_CHAR_TIMEOUT_MAX 10000
+#define RECV_CHAR_TIMEOUT_DEFAULT 500
+				if (_recv_char_timeout < RECV_CHAR_TIMEOUT_MIN || RECV_CHAR_TIMEOUT_MAX < _recv_char_timeout) {
+					_recv_char_timeout = RECV_CHAR_TIMEOUT_DEFAULT;
+					msgbox(MB_ICONEXCLAMATION, "无效设置", "字符重组超时仅限于[%d,%d]! 已设置为默认值 %d!", RECV_CHAR_TIMEOUT_MIN, RECV_CHAR_TIMEOUT_MAX, RECV_CHAR_TIMEOUT_DEFAULT);
+				}
 				_text_data_receiver.set_char_encoding(_recv_char_encoding);
 				_text_data_receiver.set_char_timeout(_recv_char_timeout);
-				return 0;
+				update_status("字符编码:%s 重组超时:%dms", _text_data_receiver.encoding_id_2_name(_recv_char_encoding), _recv_char_timeout);
+				debug_printll("字符编码:%s 重组超时:%dms", _text_data_receiver.encoding_id_2_name(_recv_char_encoding), _recv_char_timeout);
 			}
 			break;
 		case IDC_BTN_SEND_FMT_CONFIG:
@@ -1267,8 +1277,8 @@ namespace Common {
 				if (_b_reset_counter) {
 					_comm.reset_counter();
 				}
-				update_status("串口已打开!");
-				debug_puts("串口已打开!");
+				update_status("串口已打开! 字符编码:%s 重组超时:%dms", _text_data_receiver.encoding_id_2_name(_recv_char_encoding), _recv_char_timeout);
+				debug_printll("串口已打开! 字符编码:%s 重组超时:%dms", _text_data_receiver.encoding_id_2_name(_recv_char_encoding), _recv_char_timeout);
 				_timer.start();
 			}
 		}
