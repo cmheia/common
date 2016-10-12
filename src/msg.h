@@ -145,6 +145,7 @@ namespace Common {
 
 	protected:
 		LRESULT CALLBACK RichEditProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam);
+		LRESULT CALLBACK HexEditProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam);
 		virtual LRESULT HandleMessage(UINT uMsg, WPARAM wParam, LPARAM lParam, bool& bHandled);
 		virtual void OnFinalMessage(HWND hWnd);
 
@@ -346,6 +347,9 @@ namespace Common {
 
 		AThunk				_thunk_rich_edit;
 		WNDPROC				_thunk_rich_edit_old_proc;
+
+		AThunk				_thunk_hex_edit;
+		WNDPROC				_thunk_hex_edit_old_proc;
 
 		c_observable		_window_close_handler;
 

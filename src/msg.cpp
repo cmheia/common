@@ -179,9 +179,12 @@ namespace Common {
 
 		WNDPROC new_rich_proc = static_cast<WNDPROC>(_thunk_rich_edit.Stdcall(this, &CComWnd::RichEditProc));
 		_thunk_rich_edit_old_proc = SubclassWindow(*editor_recv_char(), new_rich_proc);
-		::ImmAssociateContext(*editor_recv_char(), nullptr);
+		//::ImmAssociateContext(*editor_recv_char(), nullptr);
 
 		editor_recv_hex()->Attach(::GetDlgItem(hWnd, IDC_EDIT_RECV));
+		WNDPROC new_hex_proc = static_cast<WNDPROC>(_thunk_hex_edit.Stdcall(this, &CComWnd::HexEditProc));
+		_thunk_hex_edit_old_proc = SubclassWindow(*editor_recv_hex(), new_hex_proc);
+
 		editor_send()->Attach(::GetDlgItem(hWnd, IDC_EDIT_SEND));
 
 		editor_recv_hex()->limit_text(-1);
@@ -381,10 +384,21 @@ namespace Common {
 
 	LRESULT CComWnd::on_contextmenu(HWND hwnd, int x, int y)
 	{
-		if (hwnd == _recv_char_edit){
-			HMENU hMenu = ::LoadMenu(theApp, MAKEINTRESOURCE(MENU_RICHEDIT_CONTEXTMENU));
-			HMENU hSubMenu0 = ::GetSubMenu(hMenu, 0);
+		HMENU hMenu = ::LoadMenu(theApp, MAKEINTRESOURCE(MENU_RICHEDIT_CONTEXTMENU));
+		HMENU hSubMenu0 = ::GetSubMenu(hMenu, 0);
 
+		if (_b_recv_data_format_hex) {
+			::DeleteMenu(hSubMenu0, ID_EDITCONTEXTMENU_COPY, MF_BYCOMMAND);
+			::DeleteMenu(hSubMenu0, ID_EDITCONTEXTMENU_CUT, MF_BYCOMMAND);
+			::DeleteMenu(hSubMenu0, ID_EDITCONTEXTMENU_DELETE, MF_BYCOMMAND);
+			::DeleteMenu(hSubMenu0, ID_EDITCONTEXTMENU_PASTE, MF_BYCOMMAND);
+			::DeleteMenu(hSubMenu0, ID_EDITCONTEXTMENU_SELALL, MF_BYCOMMAND);
+			::DeleteMenu(hSubMenu0, ID_EDITCONTEXTMENU_FULLSCREEN, MF_BYCOMMAND);
+			::DeleteMenu(hSubMenu0, 5, MF_BYPOSITION);
+			::DeleteMenu(hSubMenu0, 1, MF_BYPOSITION);
+			::DeleteMenu(hSubMenu0, 0, MF_BYPOSITION);
+		}
+		else {
 			bool bsel = _recv_char_edit.get_sel_range();
 			::EnableMenuItem(hSubMenu0, ID_EDITCONTEXTMENU_COPY, bsel ? MF_ENABLED : MF_DISABLED | MF_GRAYED);
 			::EnableMenuItem(hSubMenu0, ID_EDITCONTEXTMENU_CUT, bsel ? MF_ENABLED : MF_DISABLED | MF_GRAYED);
@@ -392,14 +406,13 @@ namespace Common {
 
 			bool breadonly = _recv_char_edit.is_read_only();
 			::EnableMenuItem(hSubMenu0, ID_EDITCONTEXTMENU_PASTE, (!breadonly && ::IsClipboardFormatAvailable(CF_TEXT)) ? MF_ENABLED : MF_DISABLED | MF_GRAYED);
-
-			::ModifyMenu(hSubMenu0, ID_EDITCONTEXTMENU_OPENCLOSE, MF_STRING | MF_BYCOMMAND, ID_EDITCONTEXTMENU_OPENCLOSE, (_comm.is_opened() ? "关闭(&W)\tF12" : "打开(&W)\tF12"));
-
-			::CheckMenuItem(hSubMenu0, ID_EDITCONTEXTMENU_FULLSCREEN, _b_recv_char_edit_fullscreen ? MF_CHECKED : MF_UNCHECKED);
-
-			::TrackPopupMenu(hSubMenu0, TPM_LEFTALIGN | TPM_LEFTBUTTON, x, y, 0, *this, nullptr);
-
 		}
+
+		::ModifyMenu(hSubMenu0, ID_EDITCONTEXTMENU_OPENCLOSE, MF_STRING | MF_BYCOMMAND, ID_EDITCONTEXTMENU_OPENCLOSE, (_comm.is_opened() ? "关闭(&W)\tF12" : "打开(&W)\tF12"));
+
+		::CheckMenuItem(hSubMenu0, ID_EDITCONTEXTMENU_FULLSCREEN, _b_recv_char_edit_fullscreen ? MF_CHECKED : MF_UNCHECKED);
+
+		::TrackPopupMenu(hSubMenu0, TPM_LEFTALIGN | TPM_LEFTBUTTON, x, y, 0, *this, nullptr);
 		return 0;
 	}
 
@@ -548,7 +561,14 @@ namespace Common {
 		case ID_EDITCONTEXTMENU_CUT:		_recv_char_edit.do_cut(); break;
 		case ID_EDITCONTEXTMENU_PASTE:		_recv_char_edit.do_paste(); break;
 		case ID_EDITCONTEXTMENU_DELETE:		_recv_char_edit.do_delete(); break;
-		case ID_EDITCONTEXTMENU_CLRSCR:		_recv_char_edit.clear(); break;
+		case ID_EDITCONTEXTMENU_CLRSCR:
+			if (_b_recv_data_format_hex) {
+				_recv_hex_edit.clear();
+			}
+			else {
+				_recv_char_edit.clear();
+			}
+			break;
 		case ID_EDITCONTEXTMENU_OPENCLOSE:	com_openclose(); break;
 		case ID_EDITCONTEXTMENU_SELALL:		_recv_char_edit.do_sel_all(); break;
 		case ID_EDITCONTEXTMENU_FULLSCREEN:	
@@ -1317,50 +1337,323 @@ namespace Common {
 			dwStyle |= WS_BORDER;
 		}
 		::SetWindowLongPtr(editor_recv_char()->GetHWND(), GWL_STYLE, dwStyle);
+		//::RedrawWindow(GetHWND(), NULL, NULL, RDW_INTERNALPAINT);
+		//::RedrawWindow(editor_recv_char()->GetHWND(), NULL, NULL, RDW_FRAME | RDW_UPDATENOW | RDW_NOCHILDREN);
 		::SetFocus(*editor_recv_char());
 	}
 
 	LRESULT CALLBACK CComWnd::RichEditProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 	{
 		if (uMsg == WM_CHAR){
-			if (_comm.is_opened()){
+			if (_comm.is_opened()) {
+				if (0x1B == wParam) {
+					// Process an escape.
+					debug_puts("Process an escape");
+					return 0;
+				}
+
+				if (0x0D == wParam) {
+					// Process a carriage return.
+					if (_send_data_format_char & SendDataFormatChar::sdfc_kCr) {
+						char cmd[] = { 0x0D };
+						_comm.write(cmd, sizeof cmd);
+					}
+					if (_send_data_format_char & SendDataFormatChar::sdfc_kLf) {
+						char cmd[] = { 0x0A };
+						_comm.write(cmd, sizeof cmd);
+					}
+					debug_puts("Process a carriage return");
+					return 0;
+				}
+
 				char ch = char(wParam);
 				_comm.write(&ch, 1);
-				return 0;
+				debug_printl("key:0x%02X", ch);
 			}
 			return 0;
 		}
-		else if (uMsg == WM_KEYUP) {
-			if (wParam == VK_F8) {
-				::ShellExecute(m_hWnd, "open", _custom_cmd.c_str(), NULL, NULL, SW_SHOWNORMAL);
-				debug_printl("VK_F8");
+		else if (uMsg == WM_KEYDOWN) {
+			switch (wParam) {
+
+			case VK_F8:
+				// Process the F8 key.
+				do {
+					debug_puts("VK_F8");
+					::ShellExecute(m_hWnd, "open", _custom_cmd.c_str(), NULL, NULL, SW_SHOWNORMAL);
+				} while (0);
+				return 0;
+
+			case VK_F9:
+				// Process the F9 key.
+				do {
+					debug_puts("VK_F9");
+					editor_recv_char()->clear();
+				} while (0);
+				return 0;
+
+			case VK_F11:
+				// Process the F11 key.
+				do {
+					debug_puts("VK_F11");
+					_b_recv_char_edit_fullscreen = !_b_recv_char_edit_fullscreen;
+					switch_rich_edit_fullscreen(_b_recv_char_edit_fullscreen);
+				} while (0);
+				return 0;
+
+			case VK_F12:
+				// Process the F12 key.
+				do {
+					debug_puts("VK_F12");
+					com_openclose();
+				} while (0);
 				return 0;
 			}
-			if (wParam == VK_F9) {
-				editor_recv_char()->clear();
-				debug_printl("VK_F9");
+#if 0
+			if (_comm.is_opened()) {
+				switch (wParam) {
+				case VK_UP:
+					// Process the UP ARROW key.
+					do {
+						debug_puts("VK_UP");
+						char cmd[] = { 0x1B, 0x5B, 0x41 };
+						_comm.write(cmd, sizeof cmd);
+					} while (0);
+					break;
+
+				case VK_DOWN:
+					// Process the DOWN ARROW key.
+					do {
+						debug_puts("VK_DOWN");
+						char cmd[] = { 0x1B, 0x5B, 0x42 };
+						_comm.write(cmd, sizeof cmd);
+					} while (0);
+					break;
+
+				case VK_RIGHT:
+					// Process the RIGHT ARROW key.
+					do {
+						debug_puts("VK_RIGHT");
+						char cmd[] = { 0x1B, 0x5B, 0x43 };
+						_comm.write(cmd, sizeof cmd);
+					} while (0);
+					break;
+
+				case VK_LEFT:
+					// Process the LEFT ARROW key.
+					do {
+						debug_puts("VK_LEFT");
+						char cmd[] = { 0x1B, 0x5B, 0x44 };
+						_comm.write(cmd, sizeof cmd);
+					} while (0);
+					break;
+
+				case VK_HOME:
+					// Process the HOME key.
+					do {
+						debug_puts("VK_HOME");
+						char cmd[] = { 0x1B, 0x5B, 0x31, 0x7E };
+						_comm.write(cmd, sizeof cmd);
+					} while (0);
+					break;
+
+				case VK_END:
+					// Process the END key.
+					do {
+						debug_puts("VK_END");
+						char cmd[] = { 0x1B, 0x5B, 0x34, 0x7E };
+						_comm.write(cmd, sizeof cmd);
+					} while (0);
+					break;
+
+				case VK_INSERT:
+					// Process the INS key.
+					do {
+						debug_puts("VK_INSERT");
+						char cmd[] = { 0x1B, 0x5B, 0x32, 0x7E };
+						_comm.write(cmd, sizeof cmd);
+					} while (0);
+					break;
+
+				case VK_DELETE:
+					// Process the DEL key.
+					do {
+						debug_puts("VK_DELETE");
+						char cmd[] = { 0x1B, 0x5B, 0x33, 0x7E };
+						_comm.write(cmd, sizeof cmd);
+					} while (0);
+					break;
+
+					// Process other non-character keystrokes.
+
+				default:
+					do {
+						debug_printl("VK:%d", wParam);
+					} while (0);
+					break;
+				}
 				return 0;
 			}
-			if (wParam == VK_F12) {
-				com_openclose();
-				debug_printl("VK_F12");
-				return 0;
-			}
+#endif
 		}
-		else if (uMsg == WM_KEYDOWN){
-			if (wParam == VK_F11){
-				_b_recv_char_edit_fullscreen = !_b_recv_char_edit_fullscreen;
-				switch_rich_edit_fullscreen(_b_recv_char_edit_fullscreen);
-				debug_printl("VK_F11");
-				return 0;
-			}
-		}
-		else if(uMsg == WM_MBUTTONDOWN){
+		else if(uMsg == WM_MBUTTONDOWN) {
 			editor_recv_char()->clear();
 			debug_printl("WM_MBUTTONDOWN");
 			return 0;
 		}
 		return CallWindowProc(_thunk_rich_edit_old_proc, hWnd, uMsg, wParam, lParam);
+	}
+
+	LRESULT CALLBACK CComWnd::HexEditProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
+	{
+		if (uMsg == WM_CHAR) {
+			if (_comm.is_opened()) {
+				if (0x1B == wParam) {
+					// Process an escape.
+					debug_puts("Process an escape");
+					return 0;
+				}
+
+				if (0x0D == wParam) {
+					// Process a carriage return.
+					if (_send_data_format_char & SendDataFormatChar::sdfc_kCr) {
+						char cmd[] = { 0x0D };
+						_comm.write(cmd, sizeof cmd);
+					}
+					if (_send_data_format_char & SendDataFormatChar::sdfc_kLf) {
+						char cmd[] = { 0x0A };
+						_comm.write(cmd, sizeof cmd);
+					}
+					debug_puts("Process a carriage return");
+					return 0;
+				}
+
+				char ch = char(wParam);
+				_comm.write(&ch, 1);
+				debug_printl("key:0x%02X", ch);
+			}
+			return 0;
+		}
+		else if (uMsg == WM_KEYDOWN) {
+			switch (wParam) {
+
+			case VK_F8:
+				// Process the F8 key.
+				do {
+					debug_puts("VK_F8");
+					::ShellExecute(m_hWnd, "open", _custom_cmd.c_str(), NULL, NULL, SW_SHOWNORMAL);
+				} while (0);
+				return 0;
+
+			case VK_F9:
+				// Process the F9 key.
+				do {
+					debug_puts("VK_F9");
+					editor_recv_char()->clear();
+				} while (0);
+				return 0;
+
+			case VK_F12:
+				// Process the F12 key.
+				do {
+					debug_puts("VK_F12");
+					com_openclose();
+				} while (0);
+				return 0;
+			}
+#if 0
+			if (_comm.is_opened()) {
+				switch (wParam) {
+				case VK_UP:
+					// Process the UP ARROW key.
+					do {
+						debug_puts("VK_UP");
+						char cmd[] = { 0x1B, 0x5B, 0x41 };
+						_comm.write(cmd, sizeof cmd);
+					} while (0);
+					break;
+
+				case VK_DOWN:
+					// Process the DOWN ARROW key.
+					do {
+						debug_puts("VK_DOWN");
+						char cmd[] = { 0x1B, 0x5B, 0x42 };
+						_comm.write(cmd, sizeof cmd);
+					} while (0);
+					break;
+
+				case VK_RIGHT:
+					// Process the RIGHT ARROW key.
+					do {
+						debug_puts("VK_RIGHT");
+						char cmd[] = { 0x1B, 0x5B, 0x43 };
+						_comm.write(cmd, sizeof cmd);
+					} while (0);
+					break;
+
+				case VK_LEFT:
+					// Process the LEFT ARROW key.
+					do {
+						debug_puts("VK_LEFT");
+						char cmd[] = { 0x1B, 0x5B, 0x44 };
+						_comm.write(cmd, sizeof cmd);
+					} while (0);
+					break;
+
+				case VK_HOME:
+					// Process the HOME key.
+					do {
+						debug_puts("VK_HOME");
+						char cmd[] = { 0x1B, 0x5B, 0x31, 0x7E };
+						_comm.write(cmd, sizeof cmd);
+					} while (0);
+					break;
+
+				case VK_END:
+					// Process the END key.
+					do {
+						debug_puts("VK_END");
+						char cmd[] = { 0x1B, 0x5B, 0x34, 0x7E };
+						_comm.write(cmd, sizeof cmd);
+					} while (0);
+					break;
+
+				case VK_INSERT:
+					// Process the INS key.
+					do {
+						debug_puts("VK_INSERT");
+						char cmd[] = { 0x1B, 0x5B, 0x32, 0x7E };
+						_comm.write(cmd, sizeof cmd);
+					} while (0);
+					break;
+
+				case VK_DELETE:
+					// Process the DEL key.
+					do {
+						debug_puts("VK_DELETE");
+						char cmd[] = { 0x1B, 0x5B, 0x33, 0x7E };
+						_comm.write(cmd, sizeof cmd);
+					} while (0);
+					break;
+
+					// Process other non-character keystrokes.
+
+				default:
+					do {
+						debug_printl("VK:%d", wParam);
+					} while (0);
+					break;
+				}
+				return 0;
+			}
+#endif
+			return 0;
+		}
+		else if (uMsg == WM_MBUTTONDOWN) {
+			editor_recv_hex()->clear();
+			debug_printl("WM_MBUTTONDOWN");
+			return 0;
+		}
+		return CallWindowProc(_thunk_hex_edit_old_proc, hWnd, uMsg, wParam, lParam);
 	}
 
 	bool CComWnd::TranslateAccelerator(MSG* pmsg)
