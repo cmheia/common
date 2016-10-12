@@ -14,6 +14,12 @@ namespace Common {
 		virtual bool TranslateAccelerator(MSG* pmsg) = 0;
 	};
 
+	class IIdleHandler
+	{
+	public:
+		virtual bool OnIdle(int count) = 0;
+	};
+
 	class CWindowManager
 	{
 	public:
@@ -30,6 +36,9 @@ namespace Common {
 		bool TranslateAccelerator(MSG* pmsg);
 		IAcceleratorTranslator*& AcceleratorTranslator() { return m_pAcceTrans; }
 
+		bool OnIdle(int count);
+		IIdleHandler*& IdleHandler() { return m_pIdleHandler; }
+
 		static void MessageLoop();
 		static bool TranslateMessage(MSG* pmsg);
 		bool AddWindowManager(CWindowManager* pwm);
@@ -40,6 +49,7 @@ namespace Common {
 		HWND m_hWnd;
 		IMessageFilter* m_pMsgFilter;
 		IAcceleratorTranslator* m_pAcceTrans;
+		IIdleHandler*  m_pIdleHandler;
 		static c_ptr_array<CWindowManager> m_aWndMgrs;
 	};
 }

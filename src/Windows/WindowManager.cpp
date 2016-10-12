@@ -8,6 +8,7 @@ namespace Common{
 		: m_hWnd(0)
 		, m_pMsgFilter(0)
 		, m_pAcceTrans(0)
+		, m_pIdleHandler(0)
 	{
 
 	}
@@ -38,13 +39,51 @@ namespace Common{
 		return m_pAcceTrans && m_pAcceTrans->TranslateAccelerator(pmsg);
 	}
 
+	bool CWindowManager::OnIdle(int count)
+	{
+		return m_pIdleHandler && m_pIdleHandler->OnIdle(count);
+	}
+
 	void CWindowManager::MessageLoop()
 	{
 		MSG msg;
-		while(::GetMessage(&msg, NULL, 0, 0)){
-			if(!TranslateMessage(&msg)){
-				::TranslateMessage(&msg);
-				::DispatchMessage(&msg);
+
+		for (;;) {
+			if (::PeekMessage(&msg, nullptr, 0, 0, PM_REMOVE)) {
+				if (msg.message == WM_QUIT) {
+					break;
+				}
+
+				if (!TranslateMessage(&msg)) {
+					::TranslateMessage(&msg);
+					::DispatchMessage(&msg);
+				}
+			}
+			else {
+				int n = 0;
+				for (;; n++) {
+					bool handled = false;
+					for (int i = 0; i < m_aWndMgrs.size(); i++) {
+						CWindowManager* pWM = m_aWndMgrs.getat(i);
+						if (pWM->OnIdle(n)) {
+							handled = true;
+						}
+					}
+					if (!handled) {
+						break;
+					}
+				}
+
+				if (n == 0) {
+					if (!::GetMessage(&msg, NULL, 0, 0)) {
+						break;
+					}
+
+					if (!TranslateMessage(&msg)) {
+						::TranslateMessage(&msg);
+						::DispatchMessage(&msg);
+					}
+				}
 			}
 		}
 	}

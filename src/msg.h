@@ -96,6 +96,7 @@ namespace Common {
 		, public i_timer
 		, public i_timer_period
 		, public IAcceleratorTranslator
+		, public IIdleHandler
 	{
 		friend class c_recv_data_format_dlg;
 		friend class c_send_data_format_dlg;
@@ -142,6 +143,8 @@ namespace Common {
 
 		// IAcceleratorTranslator interface
 		virtual bool TranslateAccelerator(MSG* pmsg);
+
+		virtual bool OnIdle(int count);
 
 	protected:
 		LRESULT CALLBACK RichEditProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam);

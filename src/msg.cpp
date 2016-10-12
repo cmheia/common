@@ -195,6 +195,7 @@ namespace Common {
 
 		m_hAccel = ::LoadAccelerators(hInstance, MAKEINTRESOURCE(IDR_ACCELERATOR1));
 		m_wndmgr.AcceleratorTranslator() = this;
+		m_wndmgr.IdleHandler() = this;
 
 		m_layout = ::layout_new(hWnd, MAKEINTRESOURCE(IDR_RCDATA2), hInstance);
 		layout_visible(layout_control(m_layout, "recv_wnd_recv"), FALSE);
@@ -1661,6 +1662,35 @@ namespace Common {
 		return !!::TranslateAccelerator(m_hWnd, m_hAccel, pmsg);
 	}
 
+
+	bool CComWnd::OnIdle(int count)
+	{
+		if (Command *bpCmd = _comm.get_command()) {
+			if (bpCmd->type == CommandType::kUpdateCounter) {
+				int nRead, nWritten, nQueued;
+				_comm.get_counter(&nRead, &nWritten, &nQueued);
+				debug_printlll("kUpdateCounter:%d", nRead);
+				update_status("状态：接收计数:%u,发送计数:%u,等待发送:%u", nRead, nWritten, nQueued);
+			}
+			else if (bpCmd->type == CommandType::kErrorMessage) {
+				auto pCmd = static_cast<Command_ErrorMessage *>(bpCmd);
+				msgbox(MB_ICONERROR, nullptr, "%s", pCmd->what.c_str());
+			}
+			else if (bpCmd->type == CommandType::kReceiveData) {
+				auto pCmd = static_cast<Command_ReceiveData *>(bpCmd);
+				debug_printlll("kReceiveData:%d", pCmd->data.size());
+				for (auto p : _data_receivers) {
+					p->receive((const unsigned char *)pCmd->data.c_str(), pCmd->data.size());
+				}
+			}
+
+			delete bpCmd;
+		}
+
+		MSG msg;
+		return _comm.has_command() && !::PeekMessage(&msg, nullptr, 0, 0, PM_NOREMOVE);
+	}
+
 	void CComWnd::init_from_config_file()
 	{
 		auto get_font_info = [](const std::string& s, std::string* face, int* sz){
@@ -2029,6 +2059,7 @@ namespace Common {
 	}
 
     LRESULT CComWnd::OnCommCommand() {
+#if 0
         while(Command* bpCmd = _comm.get_command()) {
             if(bpCmd->type == CommandType::kUpdateCounter) {
                 int nRead, nWritten, nQueued;
@@ -2048,7 +2079,7 @@ namespace Common {
 
 			delete bpCmd;
         }
-
+#endif
         return 0;
     }
 

@@ -286,6 +286,11 @@ namespace Common {
             return _commands.try_pop_front();
         }
 
+		bool has_command()
+		{
+			return !_commands.empty();
+		}
+
 	// 杂项方法
 	private:
         // 基于当前系统错误码产生错误消息到命令队列
