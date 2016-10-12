@@ -315,23 +315,30 @@ namespace Common{
 
 	unsigned int CComm::thread_read()
 	{
-		BOOL bRet;
-		DWORD dw;
-
+#define MAX_BUFFER_VALIDITY 40 // ms
+		DWORD tc_last, tc_current;
+		int max_buffer_usage = 0;
 		c_event_event_listener listener;
 
-		const int kReadBufSize = 1 << 20;
-		unsigned char* block_data = NULL;
-		block_data = new unsigned char[kReadBufSize];
+#define POOL_BASE_SIZE 4096
+#define POOL_TOTAL_NUM 8
+#define POOL_TEMP_NUM  4
+		const int kReadBufSize = POOL_BASE_SIZE * POOL_TOTAL_NUM;
+		unsigned char* buffer_pointer;
+		unsigned char* buffer_boundary;
+		unsigned char* buffer_pool = NULL;
+		buffer_pool = new unsigned char[kReadBufSize + 4]; // make room for null-terminated string
+		buffer_boundary = buffer_pool + (kReadBufSize - 1);
 
 	_wait_for_work:
+		buffer_pointer = buffer_pool;
 		debug_puts("[读线程] 就绪");
-		dw = ::WaitForSingleObject(_thread_read.hEventToBegin, INFINITE);
+		DWORD dw = ::WaitForSingleObject(_thread_read.hEventToBegin, INFINITE);
 		SMART_ASSERT(dw == WAIT_OBJECT_0)(dw).Fatal();
 
 		if (!is_opened()){
 			debug_puts("[读线程] 没有工作, 退出中...");
-			delete[] block_data;
+			delete[] buffer_pool;
 			::SetEvent(_thread_read.hEventToExit);
 			return 0;
 		}
@@ -343,8 +350,8 @@ namespace Common{
 
 
 		HANDLE handles[2];
-		handles[0] = _thread_read.hEventToExit;
-		handles[1] = listener.hEvent;
+		handles[0] = _thread_read.hEventToExit; // exit
+		handles[1] = listener.hEvent; // EV_RXCHAR
 
 	_get_packet:
 		switch (::WaitForMultipleObjects(_countof(handles), handles, FALSE, INFINITE))
@@ -354,90 +361,169 @@ namespace Common{
 			goto _restart;
 		case WAIT_OBJECT_0 + 0:
 			debug_puts("[读线程] 收到退出事件!");
+			debug_printll("max_buffer_usage:%d", max_buffer_usage);
 			goto _restart;
 		case WAIT_OBJECT_0 + 1:
 			break;
 		}
 
 		DWORD nBytesToRead, nRead, nTotalRead;
-		DWORD	comerr;
-		COMSTAT	comsta;
-		// for some reasons, such as comport has been removed
-		if (!::ClearCommError(_hComPort, &comerr, &comsta)){
-            system_error("ClearCommError()");
-			goto _restart;
+		{
+			// WaitForData
+			DWORD	comerr;
+			COMSTAT	comsta;
+			do {
+				BOOL bRet = ::ClearCommError(_hComPort, &comerr, &comsta);
+				if (CE_BREAK & comerr) {
+					debug_puts("CE_BREAK");
+				}
+
+				if (CE_FRAME & comerr) {
+					debug_puts("CE_FRAME");
+				}
+
+				if (CE_OVERRUN & comerr) {
+					debug_puts("CE_OVERRUN");
+				}
+
+				if (CE_RXOVER & comerr) {
+					debug_puts("CE_RXOVER");
+				}
+				if (!bRet) {
+					PrintLastError();
+					system_error("ClearCommError()");
+					goto _restart;
+				}
+				if (comsta.cbInQue) {
+					break;
+				}
+			} while (0);
+			nBytesToRead = comsta.cbInQue;
 		}
 
-		nBytesToRead = comsta.cbInQue;
-		if (nBytesToRead == 0) 
-			nBytesToRead++; // would never happen
+		debug_printlll("cbInQue:%d", nBytesToRead);
+		tc_last = GetTickCount();
+		if (nBytesToRead == 0) {
+			nBytesToRead = POOL_BASE_SIZE * POOL_TOTAL_NUM;
+		}
 
-		if (nBytesToRead > kReadBufSize)
-			nBytesToRead = kReadBufSize;
+		if (nBytesToRead > (DWORD)(buffer_boundary - buffer_pointer)) {
+			nBytesToRead = buffer_boundary - buffer_pointer; // don't out-of range of buffer
+		}
 
-		for (nTotalRead = 0; nTotalRead < nBytesToRead;){
-			bRet = ::ReadFile(_hComPort, block_data + nTotalRead, nBytesToRead - nTotalRead, &nRead, &overlap);
-			if (bRet != FALSE){
+		int timeout = 2;
+		for (nTotalRead = 0; nTotalRead < nBytesToRead;) {
+			debug_printlll("btr:%d", nBytesToRead);
+			BOOL bRet = ::ReadFile(_hComPort, buffer_pointer, nBytesToRead - nTotalRead, &nRead, &overlap);
+			debug_printlll("read:%d, ReadFile:%d", nRead, bRet);
+			if (bRet) { // the function succeeds
 				bRet = ::GetOverlappedResult(_hComPort, &overlap, &nRead, FALSE);
 				if (bRet) {
-					debug_printll("[读线程] 读取 %d 字节, bRet==TRUE, nBytesToRead: %d", nRead, nBytesToRead);
+					debug_printlll("read:%d, bRet==TRUE, btr:%d", nRead, nBytesToRead);
 				}
-				else{
-                    system_error("[读线程] GetOverlappedResult失败!\n");
+				else {
+					system_error("[读线程] GetOverlappedResult失败!\n");
 					goto _restart;
 				}
 			}
-			else{
-				if (::GetLastError() == ERROR_IO_PENDING){
+			else { // can't read specified amount
+				if (::GetLastError() == ERROR_IO_PENDING) {
 					HANDLE handles[2];
 					handles[0] = _thread_read.hEventToExit;
 					handles[1] = overlap.hEvent;
 
-					switch (::WaitForMultipleObjects(_countof(handles), &handles[0], FALSE, INFINITE))
-					{
+					switch (::WaitForMultipleObjects(_countof(handles), &handles[0], FALSE, INFINITE)) {
 					case WAIT_FAILED:
 						debug_puts("[读线程] 等待失败!");
 						goto _restart;
 					case WAIT_OBJECT_0 + 0:
 						debug_puts("[读线程] 收到退出事件!");
+						debug_printll("max_buffer_usage:%d", max_buffer_usage);
 						goto _restart;
 					case WAIT_OBJECT_0 + 1:
 						bRet = ::GetOverlappedResult(_hComPort, &overlap, &nRead, FALSE);
-						if (bRet){
-							debug_printll("[读线程] 读取 %d 字节, bRet==FALSE", nRead);
+						if (bRet) {
+							debug_printlll("read:%d", nRead);
 						}
-						else{
-                            system_error("[读线程] GetOverlappedResult失败!\n");
+						else {
+							system_error("[读线程] GetOverlappedResult失败!\n");
 							goto _restart;
 						}
 						break;
 					}
 				}
-				else{
-                    system_error("[读线程] ::GetLastError() != ERROR_IO_PENDING");
+				else {
+					system_error("[读线程] ::GetLastError() != ERROR_IO_PENDING"); // MessageBox
 					goto _restart;
 				}
 			}
 
-			if (nRead > 0){
+			if (nRead > 0) {
 				nTotalRead += nRead;
-                update_counter(nRead, 0, 0);
+				buffer_pointer += nRead;
 			}
-			else{
-				nBytesToRead--;
+			else {
+				debug_printlll("error read:%d, tr:%d, btr:%d", nRead, nTotalRead, nBytesToRead);
+				// WaitForData
+				DWORD	comerr;
+				COMSTAT	comsta;
+				BOOL bRet = ::ClearCommError(_hComPort, &comerr, &comsta);
+				if (CE_BREAK & comerr) {
+					debug_puts("CE_BREAK");
+				}
+
+				if (CE_FRAME & comerr) {
+					debug_puts("CE_FRAME");
+				}
+
+				if (CE_OVERRUN & comerr) {
+					debug_puts("CE_OVERRUN");
+				}
+
+				if (CE_RXOVER & comerr) {
+					debug_puts("CE_RXOVER");
+				}
+				if (!bRet) {
+					PrintLastError();
+					system_error("ClearCommError()");
+				}
+				timeout--;
+				debug_printlll("timeout:%d, cbInQue:%d", timeout, comsta.cbInQue);
+				if (0 == timeout) {
+					break;
+				}
+			}
+			tc_current = GetTickCount();
+			if (MAX_BUFFER_VALIDITY < tc_current - tc_last) {
+				debug_printll("ticktock:%d", max_buffer_usage);
+				break;
 			}
 		}
 
-		auto cmd = new Command_ReceiveData;
-		cmd->data.assign((char*)block_data, nBytesToRead);
-		_commands.push_back(cmd);
+		debug_printlll("tr:%d, ntr:%d", nTotalRead, nBytesToRead);
+		if (buffer_pointer == buffer_pool) {
+			debug_printlll("buffer_pointer == buffer_pool");
+			goto _get_packet;
+		}
+		max_buffer_usage = max(max_buffer_usage, buffer_pointer - buffer_pool);
+		//debug_printlll("update_counter:%d", buffer_pointer - buffer_pool);
+		update_counter(buffer_pointer - buffer_pool, 0, 0);
+		*buffer_pointer = '\0'; // null-terminated string
 
+		auto cmd = new Command_ReceiveData;
+		cmd->data.assign((const char *)buffer_pool, buffer_pointer - buffer_pool);
+		_commands.push_back(cmd);
+		debug_printlll("ReceiveData:%d", buffer_pointer - buffer_pool);
+		buffer_pointer = buffer_pool;
 		goto _get_packet;
 
 	_restart:
 		if (!::CancelIo(_hComPort)){
 
 		}
+
+		_event_listener.remove_listener(listener);
+		listener.reset();
 
 		::WaitForSingleObject(_thread_read.hEventToExit, INFINITE);
 		::ResetEvent(_thread_read.hEventToExit);
@@ -484,11 +570,11 @@ namespace Common{
 		COMMTIMEOUTS _timeouts;
 		_timeouts.ReadIntervalTimeout = MAXDWORD;
 		_timeouts.ReadTotalTimeoutMultiplier = 0;
-		_timeouts.ReadTotalTimeoutConstant = 0;
+		_timeouts.ReadTotalTimeoutConstant = 100;
 		_timeouts.WriteTotalTimeoutMultiplier = 0;
 		_timeouts.WriteTotalTimeoutConstant = 0;
 		if (!::SetCommTimeouts(_hComPort, &_timeouts)){
-            system_error("设置串口超时错误");
+			system_error("SetCommTimeouts()错误");
 			return false;
 		}
 
