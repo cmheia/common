@@ -169,7 +169,7 @@ namespace Common {
 			_databit_list.add(t_com_item(iDataSize[i], aDataSize[i]));
 
 		editor_recv_char()->Create(hWnd, "", WS_CHILD | WS_VISIBLE | WS_HSCROLL | WS_VSCROLL | ES_READONLY |
-			WS_BORDER |
+			//WS_BORDER |
 			ES_MULTILINE | ES_WANTRETURN | ES_AUTOHSCROLL | ES_AUTOVSCROLL ,
 			0,
 			0,0,0,0, (HMENU)IDC_EDIT_RECV2);
@@ -1326,18 +1326,18 @@ namespace Common {
 		SdkLayout::CControlUI* p_main_wnd = m_layout->FindControl("main_wnd");
 		SdkLayout::CControlUI* p_recv_rich = m_layout->FindControl("fullscreen_recv_rich_wnd");
 
-		DWORD dwStyle = ::GetWindowLongPtr(editor_recv_char()->GetHWND(), GWL_STYLE);
+		//DWORD dwStyle = ::GetWindowLongPtr(editor_recv_char()->GetHWND(), GWL_STYLE);
 		if (full){
 			p_main_wnd->SetVisible(false);
 			p_recv_rich->SetVisible(true);
-			dwStyle &= ~WS_BORDER;
+			//dwStyle &= ~WS_BORDER;
 		}
 		else{
 			p_recv_rich->SetVisible(false);
 			p_main_wnd->SetVisible(true);
-			dwStyle |= WS_BORDER;
+			//dwStyle |= WS_BORDER;
 		}
-		::SetWindowLongPtr(editor_recv_char()->GetHWND(), GWL_STYLE, dwStyle);
+		//::SetWindowLongPtr(editor_recv_char()->GetHWND(), GWL_STYLE, dwStyle);
 		//::RedrawWindow(GetHWND(), NULL, NULL, RDW_INTERNALPAINT);
 		//::RedrawWindow(editor_recv_char()->GetHWND(), NULL, NULL, RDW_FRAME | RDW_UPDATENOW | RDW_NOCHILDREN);
 		::SetFocus(*editor_recv_char());
