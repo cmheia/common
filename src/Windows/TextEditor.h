@@ -3,13 +3,25 @@
 namespace Common {
 	namespace Window{
 		class c_edit : public CWnd
+			, public i_timer_period
 		{
 		public:
 			c_edit()
 				: _bUseDefMenu(true)
+				, _buffer(NULL)
+				, _sz_buffer_size(64 * 1024 - 4)
+				, _sz_buffer_usage(0)
+#ifdef _DEBUG
+				, _sz_buffer_max_usage(0)
+#endif // _DEBUG
 			{
+				_buffer = new char[_sz_buffer_size + 4];
+				_replace_timer.set_period(40);
+				_replace_timer.set_period_timer(this);
+				_replace_timer.start();
 			}
 			virtual ~c_edit(){
+				delete[] _buffer;
 			}
 
 			virtual LPCTSTR GetSuperClassName() const{return WC_EDIT;}
@@ -20,8 +32,13 @@ namespace Common {
 				::SetWindowText(*this, ""); 
 			}
 			virtual bool back_delete_char(int n);
-			virtual bool append_text(const char* str);
+			virtual bool append_text(const char* str, size_t len = 0);
 			virtual void set_text(const char* str);
+			virtual void update_timer_period(void) override;
+			int get_replace_timer(void);
+			void set_replace_timer(int ms);
+			void start_replace_timer(void);
+			int stop_replace_timer(void);
 
 		public: // menu support functions
 			virtual bool is_read_only();
@@ -32,38 +49,32 @@ namespace Common {
 		protected:
 			virtual LRESULT HandleMessage(UINT uMsg, WPARAM wParam, LPARAM lParam, bool& bHandled) override;
 			HMENU _load_default_menu();
+			virtual bool _append_text(const char* str);
 
 
 		protected:
 			bool _bUseDefMenu;
-
+			c_timer _replace_timer;
+			char *_buffer;
+			size_t _sz_buffer_size;
+			size_t _sz_buffer_usage;
+#ifdef _DEBUG
+			size_t _sz_buffer_max_usage;
+#endif // _DEBUG
 		};
 
 		class c_rich_edit : public c_edit
-			, public i_timer_period
 		{
-#define RICH_EDIT_SET_TEXT_BUFFER_ACTUAL_SIZE (64 * 1024)
-#define RICH_EDIT_SET_TEXT_BLOB_SIZE (RICH_EDIT_SET_TEXT_BUFFER_ACTUAL_SIZE - 4)
 		public:
 			c_rich_edit()
 				: _deffg(30)
 				, _defbg(47)
-				, _buffer(NULL)
-				, _sz_buffer_usage(0)
 				, _codepage(CP_UTF8)
-#ifdef _DEBUG
-				, _sz_buffer_max_usage(0)
-#endif // _DEBUG
 			{
-				_buffer = new char[RICH_EDIT_SET_TEXT_BUFFER_ACTUAL_SIZE];
-				_replace_timer.set_period(40);
-				_replace_timer.set_period_timer(this);
-				_replace_timer.start();
 			}
 
 			~c_rich_edit()
 			{
-				delete[] _buffer;
 			}
 
 			virtual LPCTSTR GetSuperClassName() const {return RICHEDIT_CLASS;}
@@ -86,11 +97,7 @@ namespace Common {
 			void do_paste();
 			void do_delete();
 			void do_sel_all();
-			int get_replace_timer(void);
-			void set_replace_timer(int ms);
-			void start_replace_timer(void);
-			int stop_replace_timer(void);
-			void update_timer_period(void);
+			virtual void update_timer_period(void);
 			UINT get_cur_codepage(void);
 			void set_cur_codepage(UINT codepage);
 
@@ -102,12 +109,6 @@ namespace Common {
 		protected:
 			int _deffg;
 			int _defbg;
-			c_timer _replace_timer;
-			char *_buffer;
-			size_t _sz_buffer_usage;
-#ifdef _DEBUG
-			size_t _sz_buffer_max_usage;
-#endif // _DEBUG
 			UINT _codepage;
 		};
 	}

@@ -1,6 +1,5 @@
 #pragma once
 
-#ifdef _DEBUG
 #define DETAIL_PRINT 1
 
 #define _GULE_NUMBER(num) #num
@@ -16,6 +15,7 @@
 #	define _DEBUG_STRING_FILE_LINE_FUNC
 #endif
 
+#ifdef _DEBUG
 #define debug_printl(fmt, ...) printf(_DEBUG_STRING_FILE_LINE "\t" fmt "\n", __VA_ARGS__)
 #define debug_printll(fmt, ...) printf(_DEBUG_STRING_FILE_LINE_FUNC "\t" fmt "\n", __VA_ARGS__)
 #define debug_printlll(fmt, ...) do {printf(_DEBUG_STRING_FILE_LINE_FUNC " %d\t" fmt "\n", GetTickCount(), __VA_ARGS__);} while(0)

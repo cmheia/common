@@ -1,6 +1,8 @@
 #include "stdafx.h"
 #include "../debug.h"
 
+#define DEBUG_UPDATE_TIMER_PERIOD 0
+
 namespace Common{
 namespace Window{
 
@@ -10,12 +12,98 @@ namespace Window{
 		return false;
 	}
 
-	bool c_edit::append_text( const char* str )
+	bool c_edit::_append_text( const char* str )
 	{
 		int len = ::GetWindowTextLength(m_hWnd);
 		Edit_SetSel(m_hWnd, len, len);
 		Edit_ReplaceSel(m_hWnd, str);
+		debug_printll("max buffer:%u", _sz_buffer_max_usage);
 		return true;
+	}
+
+	bool c_edit::append_text( const char* str, size_t len )
+	{
+		size_t length = len;
+
+		if (0 == length) {
+			length = strlen(str);
+			if (0 == length) {
+				return false;
+			}
+		}
+		debug_printll("%d", length);
+
+		if (_sz_buffer_size < length + _sz_buffer_usage) {
+			if (0 == _sz_buffer_usage) {
+				debug_printll("huge blob skip buffer[%d]", length);
+				MessageBeep(MB_OK);
+				_append_text(str);
+			}
+			else {
+#ifdef _DEBUG
+				if (_sz_buffer_usage > _sz_buffer_max_usage) {
+					_sz_buffer_max_usage = _sz_buffer_usage;
+				}
+#endif // _DEBUG
+				debug_printll("flush buffer:%u", _sz_buffer_usage);
+				_buffer[_sz_buffer_usage] = '\0'; // null-terminated string
+				_append_text(_buffer);
+				_sz_buffer_usage = 0;
+			}
+		}
+		memcpy(&(_buffer[_sz_buffer_usage]), str, length);
+		_sz_buffer_usage += length;
+		_buffer[_sz_buffer_usage] = '\0';
+		return true;
+	}
+
+	void c_edit::update_timer_period(void)
+	{
+#if DEBUG_UPDATE_TIMER_PERIOD
+		static DWORD ts = 0;
+#endif // DEBUG_UPDATE_TIMER_PERIOD
+		//(void)stop_replace_timer();
+		if (0 < _sz_buffer_usage) {
+#ifdef _DEBUG
+			if (_sz_buffer_usage > _sz_buffer_max_usage) {
+				_sz_buffer_max_usage = _sz_buffer_usage;
+			}
+#endif // _DEBUG
+			debug_printll("periodical flush buffer:%u", _sz_buffer_usage);
+#if DEBUG_UPDATE_TIMER_PERIOD
+			DWORD nts = GetTickCount();
+			printf(_DEBUG_STRING_FILE_LINE_FUNC " %d\t\n", nts - ts);
+			ts = nts;
+#endif // DEBUG_UPDATE_TIMER_PERIOD
+			_buffer[_sz_buffer_usage] = '\0'; // null-terminated string
+			_append_text(_buffer);
+			_sz_buffer_usage = 0;
+		}
+		//start_replace_timer();
+	}
+
+	int c_edit::get_replace_timer(void)
+	{
+		return _replace_timer.get_period();
+	}
+
+	void c_edit::set_replace_timer(int ms)
+	{
+		_replace_timer.set_period(ms);
+	}
+
+	void c_edit::start_replace_timer(void)
+	{
+		stop_replace_timer();
+		_replace_timer.start();
+	}
+
+	int c_edit::stop_replace_timer(void)
+	{
+		if (_replace_timer.is_running()) {
+			_replace_timer.stop();
+		}
+		return _replace_timer.get_period();
 	}
 
 	void c_edit::limit_text( int sz )
@@ -123,6 +211,7 @@ namespace Window{
 		// http://stackoverflow.com/questions/9757134/scrolling-richedit-without-it-having-focus
 		SendMessage(WM_VSCROLL, SB_BOTTOM);
 
+		debug_printll("max buffer:%u", _sz_buffer_max_usage);
 		return true;
 	}
 
@@ -132,7 +221,7 @@ namespace Window{
 		//if (_codepage == codepage) { // can't change codepage on the fly, flush buffer needed
 			size_t len = strlen(str);
 			debug_printll("%d, %d", len, codepage);
-			if (RICH_EDIT_SET_TEXT_BLOB_SIZE < len + _sz_buffer_usage) {
+			if (_sz_buffer_size < len + _sz_buffer_usage) {
 				if (0 == _sz_buffer_usage) {
 					debug_printll("huge blob skip buffer[%d]", len);
 					MessageBeep(MB_OK);
@@ -144,7 +233,7 @@ namespace Window{
 						_sz_buffer_max_usage = _sz_buffer_usage;
 					}
 #endif // _DEBUG
-					debug_printll("replace buffer:%u(%u)", _sz_buffer_usage, _sz_buffer_max_usage);
+					debug_printll("flush buffer:%u", _sz_buffer_usage);
 					_buffer[_sz_buffer_usage] = '\0'; // null-terminated string
 					_append_text(_buffer, _codepage);
 					_sz_buffer_usage = 0;
@@ -322,43 +411,29 @@ namespace Window{
 		SendMessage(EM_SETSEL, 0, -1);
 	}
 
-	int c_rich_edit::get_replace_timer(void)
-	{
-		return _replace_timer.get_period();
-	}
-
-	void c_rich_edit::set_replace_timer(int ms)
-	{
-		_replace_timer.set_period(ms);
-	}
-
-	void c_rich_edit::start_replace_timer(void) {
-		stop_replace_timer();
-		_replace_timer.start();
-	}
-
-	int c_rich_edit::stop_replace_timer(void) {
-		if (_replace_timer.is_running()) {
-			_replace_timer.stop();
-		}
-		return _replace_timer.get_period();
-	}
-
 	void c_rich_edit::update_timer_period(void)
 	{
-		(void)stop_replace_timer();
+#if DEBUG_UPDATE_TIMER_PERIOD
+		static DWORD ts = 0;
+#endif // DEBUG_UPDATE_TIMER_PERIOD
+		//(void)stop_replace_timer();
 		if (0 < _sz_buffer_usage) {
 #ifdef _DEBUG
 			if (_sz_buffer_usage > _sz_buffer_max_usage) {
 				_sz_buffer_max_usage = _sz_buffer_usage;
 			}
 #endif // _DEBUG
-			debug_printll("replace buffer:%u(%u)", _sz_buffer_usage, _sz_buffer_max_usage);
+			debug_printll("periodical flush buffer:%u", _sz_buffer_usage);
+#if DEBUG_UPDATE_TIMER_PERIOD
+			DWORD nts = GetTickCount();
+			printf(_DEBUG_STRING_FILE_LINE_FUNC " %d\t\n", nts - ts);
+			ts = nts;
+#endif // DEBUG_UPDATE_TIMER_PERIOD
 			_buffer[_sz_buffer_usage] = '\0'; // null-terminated string
 			_append_text(_buffer, _codepage);
 			_sz_buffer_usage = 0;
 		}
-		start_replace_timer();
+		//start_replace_timer();
 	}
 
 	void c_rich_edit::set_default_text_fgcolor(COLORREF fg)
