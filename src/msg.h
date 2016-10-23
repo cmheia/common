@@ -66,12 +66,13 @@ namespace Common {
 	class c_recv_data_format_dlg : public c_dialog_builder
 	{
 	public:
-		c_recv_data_format_dlg(bool bchar, c_text_data_receiver::character_encoding_e* encoding, int* timeout, const c_text_data_receiver::encoding_t* enc, const int len)
+		c_recv_data_format_dlg(bool bchar, c_text_data_receiver::character_encoding_e* encoding, int* timeout, const c_text_data_receiver::encoding_t* enc, const int len, bool* wordwrap)
 			: _bchar(bchar)
 			, _dwEncoding(encoding)
 			, _dwTimeout(timeout)
 			, _enc(enc)
 			, _encoding_list_len(len)
+			, _bWordWrap(wordwrap)
 		{
 		}
 
@@ -87,6 +88,7 @@ namespace Common {
 		bool _bchar;
 		c_text_data_receiver::character_encoding_e* _dwEncoding;
 		int* _dwTimeout;
+		bool* _bWordWrap;
 		const c_text_data_receiver::encoding_t* _enc;
 		const int _encoding_list_len;
 	};
@@ -108,6 +110,7 @@ namespace Common {
         CommandNotifier _command_notifier;
         UINT            _command_message;
 		std::string     _custom_cmd;
+		bool            _bWordWrap;
 
 	private:
 		enum PrivateMessage{
@@ -175,6 +178,7 @@ namespace Common {
 		void save_to_config_file();
 
 		void switch_rich_edit_fullscreen(bool full);
+		void switch_rich_edit_wordwrap(bool wordwrap);
 		void switch_window_top_most(bool manual=false, bool topmost = true);
 		void switch_reset_counter(bool reset = false);
 		void switch_simple_ui(bool manual=false, bool bsimple=false);

@@ -761,7 +761,8 @@ namespace Common {
 					&_recv_char_encoding,
 					&_recv_char_timeout,
 					_text_data_receiver.get_encoding_list(),
-					_text_data_receiver.get_encoding_list_len());
+					_text_data_receiver.get_encoding_list_len(),
+					&_bWordWrap);
 				prdf->do_modal(*this);
 #define RECV_CHAR_TIMEOUT_MIN 10
 #define RECV_CHAR_TIMEOUT_MAX 10000
@@ -774,6 +775,7 @@ namespace Common {
 				_text_data_receiver.set_char_timeout(_recv_char_timeout);
 				update_status("字符编码:%s 重组超时:%dms", _text_data_receiver.encoding_id_2_name(_recv_char_encoding), _recv_char_timeout);
 				debug_printll("字符编码:%s 重组超时:%dms", _text_data_receiver.encoding_id_2_name(_recv_char_encoding), _recv_char_timeout);
+				switch_rich_edit_wordwrap(_bWordWrap);
 			}
 			break;
 		case IDC_BTN_SEND_FMT_CONFIG:
@@ -1343,6 +1345,19 @@ namespace Common {
 		::SetFocus(*editor_recv_char());
 	}
 
+	void CComWnd::switch_rich_edit_wordwrap(bool wordwrap)
+	{
+		debug_printll("%s", wordwrap ? "WORDWRAP" : "DON'T WORDWRAP");
+		if (wordwrap) {
+			HDC hdc = GetDC(editor_recv_char()->GetHWND());
+			::SendMessage(editor_recv_char()->GetHWND(), EM_SETTARGETDEVICE, (WPARAM)hdc, 0);
+			ReleaseDC(editor_recv_char()->GetHWND(), hdc);
+		}
+		else {
+			::SendMessage(editor_recv_char()->GetHWND(), EM_SETTARGETDEVICE, 0, 1);
+		}
+	}
+
 	LRESULT CALLBACK CComWnd::RichEditProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 	{
 		if (uMsg == WM_CHAR){
@@ -1776,6 +1791,10 @@ namespace Common {
 		if (auto item = comcfg->get_key("gui.autoclr")) {
 			switch_reset_counter(item->get_bool());
 		}
+		if (auto item = comcfg->get_key("gui.recv.edit.window.wordwrap")) {
+			_bWordWrap = item->get_bool();
+			switch_rich_edit_wordwrap(_bWordWrap);
+		}
 
 		// window position
 		int pos = 0;
@@ -1975,6 +1994,8 @@ namespace Common {
 		else {
 			comcfg->set_key("gui.wnd.position.init", 0);
 		}
+
+		comcfg->set_key("gui.recv.edit.window.wordwrap", _bWordWrap);
 
 		// 数据发送格式设置
 		comcfg->set_key("comm.send.format", _b_send_data_format_hex ? "hex" : "char");
@@ -2261,10 +2282,17 @@ namespace Common {
 				<Vertical>
 					<Horizontal>
 						<Container inset="5,5,5,5" height="110" width="150">
-							<Group text="字符编码"/>
-							<Vertical inset="15,20,5,5">
-								<Option name="GB2312" text="GB2312" style="group"/>
-								<Option name="UTF-8" text="UTF-8" />
+							<Vertical>
+								<Container inset="0,0,5,0" height="70" width="150">
+									<Group text="字符编码"/>
+									<Vertical inset="15,20,5,5">
+										<Option name="GB2312" text="GB2312" style="group"/>
+										<Option name="UTF-8" text="UTF-8" />
+									</Vertical>
+								</Container>
+								<Container inset="15,5,0,0" height="30" width="150">
+									<Check name="wordwrap" text="自动换行" />
+								</Container>
 							</Vertical>
 						</Container>
 						<Container inset="5,5,5,5" height="110" width="150">
@@ -2307,11 +2335,17 @@ namespace Common {
 		LPCTSTR name = ctrl->GetName();
 		if (code == BN_CLICKED) {
 			debug_printll("%s", name);
-			for (int i = 0; i < _encoding_list_len; i++) {
-				debug_printll("[%d]id:%d, name:%s", i, _enc[i].id, _enc[i].name);
-				if (0 == strcmp(name, _enc[i].name)) {
-					*_dwEncoding = _enc[i].id;
+			if (0 == strcmp("wordwrap", name)) {
+				*_bWordWrap = ::SendMessage(hwnd, BM_GETCHECK, 0, 0) == BST_CHECKED;
+				debug_printll("%s", *_bWordWrap ? "WORDWRAP" : "DON'T WORDWRAP");
+			}
+			else {
+				for (int i = 0; i < _encoding_list_len; i++) {
 					debug_printll("[%d]id:%d, name:%s", i, _enc[i].id, _enc[i].name);
+					if (0 == strcmp(name, _enc[i].name)) {
+						*_dwEncoding = _enc[i].id;
+						debug_printll("[%d]id:%d, name:%s", i, _enc[i].id, _enc[i].name);
+					}
 				}
 			}
 		}
@@ -2342,6 +2376,8 @@ namespace Common {
 				}
 
 				::SendMessage(_layout.FindControl("timeout")->GetHWND(), WM_SETTEXT, 0, (LPARAM)(LPCTSTR)std::to_string(*_dwTimeout).c_str());
+
+				::SendMessage(_layout.FindControl("wordwrap")->GetHWND(), BM_SETCHECK, *_bWordWrap ? BST_CHECKED : BST_UNCHECKED, 0);
 			}
 			return 0;
 			break;
