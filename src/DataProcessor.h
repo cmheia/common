@@ -182,6 +182,7 @@ namespace Common{
 		};
 		typedef struct {
 			character_encoding_e id;
+			UINT codepage;
 			char *name;
 			i_data_processor* processor;
 		} encoding_t;
@@ -240,6 +241,7 @@ namespace Common{
 		}
 		void set_char_encoding(character_encoding_e en) {
 			_char_decoder = _encoding_list[en].processor;
+			_rich_editor->set_cur_codepage(_encoding_list[en].codepage);
 			debug_printll("encoding:%s, decoder:%p", encoding_id_2_name(en), _char_decoder);
 		}
 		void set_char_timeout(int timeout) {
@@ -258,8 +260,8 @@ namespace Common{
 		c_timer						_validity_timer;
 		virtual void update_timer_period() override;
 		const encoding_t _encoding_list[2] = {
-			{ charset_gb2312, "GB2312", _proc_gb2312 },
-			{ charset_utf8, "UTF-8", _proc_unicode },
+			{ charset_gb2312, CP_ACP, "GB2312", _proc_gb2312 },
+			{ charset_utf8, CP_UTF8, "UTF-8", _proc_unicode },
 		};
 		i_data_processor*			_char_decoder;
 	};

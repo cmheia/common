@@ -40,18 +40,38 @@ namespace Common {
 		};
 
 		class c_rich_edit : public c_edit
+			, public i_timer_period
 		{
+#define RICH_EDIT_SET_TEXT_BUFFER_ACTUAL_SIZE (64 * 1024)
+#define RICH_EDIT_SET_TEXT_BLOB_SIZE (RICH_EDIT_SET_TEXT_BUFFER_ACTUAL_SIZE - 4)
 		public:
 			c_rich_edit()
 				: _deffg(30)
 				, _defbg(47)
-			{}
+				, _buffer(NULL)
+				, _sz_buffer_usage(0)
+				, _codepage(CP_UTF8)
+#ifdef _DEBUG
+				, _sz_buffer_max_usage(0)
+#endif // _DEBUG
+			{
+				_buffer = new char[RICH_EDIT_SET_TEXT_BUFFER_ACTUAL_SIZE];
+				_replace_timer.set_period(40);
+				_replace_timer.set_period_timer(this);
+				_replace_timer.start();
+			}
+
+			~c_rich_edit()
+			{
+				delete[] _buffer;
+			}
 
 			virtual LPCTSTR GetSuperClassName() const {return RICHEDIT_CLASS;}
 			virtual LPCTSTR GetWindowClassName() const{return "Common" RICHEDIT_CLASS;}
 			virtual bool back_delete_char(int n);
-			virtual bool append_text(const char* str);
-			virtual bool append_text(const char* str, UINT codepage);
+			//virtual bool append_text(const char* str);
+			virtual bool append_text(const char* str, UINT codepage = CP_ACP);
+			virtual bool append_byte(const char* str, size_t len, UINT codepage = CP_ACP);
 			virtual bool apply_linux_attributes(char* attrs);
 			virtual bool apply_linux_attribute_m(int attr);
 
@@ -66,13 +86,29 @@ namespace Common {
 			void do_paste();
 			void do_delete();
 			void do_sel_all();
+			int get_replace_timer(void);
+			void set_replace_timer(int ms);
+			void start_replace_timer(void);
+			int stop_replace_timer(void);
+			void update_timer_period(void);
+			UINT get_cur_codepage(void);
+			void set_cur_codepage(UINT codepage);
+
 
 		protected:
+			virtual bool _append_text(const char* str, UINT codepage = CP_ACP);
 			virtual LRESULT HandleMessage(UINT uMsg, WPARAM wParam, LPARAM lParam, bool& bHandled) override;
 		
 		protected:
 			int _deffg;
 			int _defbg;
+			c_timer _replace_timer;
+			char *_buffer;
+			size_t _sz_buffer_usage;
+#ifdef _DEBUG
+			size_t _sz_buffer_max_usage;
+#endif // _DEBUG
+			UINT _codepage;
 		};
 	}
 }

@@ -78,7 +78,7 @@ namespace Window{
 		}
 		return true;
 	}
-
+#if 0
 	bool c_rich_edit::append_text( const char* str )
 	{
 		GETTEXTLENGTHEX gtl;
@@ -100,8 +100,8 @@ namespace Window{
 
 		return true;
 	}
-
-	bool c_rich_edit::append_text(const char* str, UINT codepage)
+#endif
+	bool c_rich_edit::_append_text(const char* str, UINT codepage)
 	{
 		SETTEXTEX st = {ST_NEWCHARS | ST_SELECTION, codepage};
 		GETTEXTLENGTHEX gtl;
@@ -124,6 +124,68 @@ namespace Window{
 		SendMessage(WM_VSCROLL, SB_BOTTOM);
 
 		return true;
+	}
+
+	bool c_rich_edit::append_text(const char* str, UINT codepage)
+	{
+		// FIXME: check codepage
+		//if (_codepage == codepage) { // can't change codepage on the fly, flush buffer needed
+			size_t len = strlen(str);
+			debug_printll("%d, %d", len, codepage);
+			if (RICH_EDIT_SET_TEXT_BLOB_SIZE < len + _sz_buffer_usage) {
+				if (0 == _sz_buffer_usage) {
+					debug_printll("huge blob skip buffer[%d]", len);
+					MessageBeep(MB_OK);
+					_append_text(str, _codepage);
+				}
+				else {
+#ifdef _DEBUG
+					if (_sz_buffer_usage > _sz_buffer_max_usage) {
+						_sz_buffer_max_usage = _sz_buffer_usage;
+					}
+#endif // _DEBUG
+					debug_printll("replace buffer:%u(%u)", _sz_buffer_usage, _sz_buffer_max_usage);
+					_buffer[_sz_buffer_usage] = '\0'; // null-terminated string
+					_append_text(_buffer, _codepage);
+					_sz_buffer_usage = 0;
+					// 启动超时计数, 结束时调用 _pre_proc
+				}
+			}
+			strcpy(&(_buffer[_sz_buffer_usage]), str);
+			_sz_buffer_usage += len;
+			return true;
+		//}
+		//else {
+		//	debug_printll("can't change codepage from %d to %d on the fly", _codepage, codepage);
+		//	return false;
+		//}
+	}
+
+	bool c_rich_edit::append_byte(const char* str, size_t len, UINT codepage)
+	{
+		// FIXME: check codepage
+		//if (_codepage == codepage) { // can't change codepage on the fly, flush buffer needed
+			debug_printll("%d, %d", len, codepage);
+			memcpy(&(_buffer[_sz_buffer_usage]), str, len);
+			_sz_buffer_usage += len;
+			_buffer[_sz_buffer_usage] = '\0';
+			return true;
+		//}
+		//else {
+		//	debug_printll("can't change codepage from %d to %d on the fly", _codepage, codepage);
+		//	return false;
+		//}
+	}
+
+	UINT c_rich_edit::get_cur_codepage(void)
+	{
+		return _codepage;
+	}
+
+	void c_rich_edit::set_cur_codepage(UINT codepage)
+	{
+		debug_printll("change codepage from %d to %d", _codepage, codepage);
+		_codepage = codepage;
 	}
 
 	bool c_rich_edit::apply_linux_attributes(char* attrs)
@@ -258,6 +320,45 @@ namespace Window{
 	void c_rich_edit::do_sel_all()
 	{
 		SendMessage(EM_SETSEL, 0, -1);
+	}
+
+	int c_rich_edit::get_replace_timer(void)
+	{
+		return _replace_timer.get_period();
+	}
+
+	void c_rich_edit::set_replace_timer(int ms)
+	{
+		_replace_timer.set_period(ms);
+	}
+
+	void c_rich_edit::start_replace_timer(void) {
+		stop_replace_timer();
+		_replace_timer.start();
+	}
+
+	int c_rich_edit::stop_replace_timer(void) {
+		if (_replace_timer.is_running()) {
+			_replace_timer.stop();
+		}
+		return _replace_timer.get_period();
+	}
+
+	void c_rich_edit::update_timer_period(void)
+	{
+		(void)stop_replace_timer();
+		if (0 < _sz_buffer_usage) {
+#ifdef _DEBUG
+			if (_sz_buffer_usage > _sz_buffer_max_usage) {
+				_sz_buffer_max_usage = _sz_buffer_usage;
+			}
+#endif // _DEBUG
+			debug_printll("replace buffer:%u(%u)", _sz_buffer_usage, _sz_buffer_max_usage);
+			_buffer[_sz_buffer_usage] = '\0'; // null-terminated string
+			_append_text(_buffer, _codepage);
+			_sz_buffer_usage = 0;
+		}
+		start_replace_timer();
 	}
 
 	void c_rich_edit::set_default_text_fgcolor(COLORREF fg)
