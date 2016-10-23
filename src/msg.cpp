@@ -1795,6 +1795,43 @@ namespace Common {
 			_bWordWrap = item->get_bool();
 			switch_rich_edit_wordwrap(_bWordWrap);
 		}
+		if (auto item = comcfg->get_key("gui.recv.edit.flush.period.hex")) {
+			const int period_min = 10;
+			const int period_max = 10000;
+
+			do {
+				int period = item->get_int();
+				bool valid = period >= period_min && period <= period_max;
+				if (period == -1) {
+					break;
+				}
+				if (valid) {
+					_recv_hex_edit.set_replace_timer(period);
+				}
+				else {
+					msgbox(MB_ICONEXCLAMATION, "无效设置", "刷新周期仅限于[%d,%d], 已设置为默认值 %d !", period_min, period_max, _recv_hex_edit.get_replace_timer());
+				}
+			} while (0);
+		}
+		if (auto item = comcfg->get_key("gui.recv.edit.flush.period.text")) {
+			const int period_min = 10;
+			const int period_max = 10000;
+			const int period_default = 40;
+
+			do {
+				int period = item->get_int();
+				bool valid = period >= period_min && period <= period_max;
+				if (period == -1) {
+					break;
+				}
+				if (valid) {
+					_recv_char_edit.set_replace_timer(period);
+				}
+				else {
+					msgbox(MB_ICONEXCLAMATION, "无效设置", "刷新周期仅限于[%d,%d], 已设置为默认值 %d !", period_min, period_max, _recv_char_edit.get_replace_timer());
+				}
+			} while (0);
+		}
 
 		// window position
 		int pos = 0;
@@ -1996,6 +2033,9 @@ namespace Common {
 		}
 
 		comcfg->set_key("gui.recv.edit.window.wordwrap", _bWordWrap);
+
+		comcfg->set_key("gui.recv.edit.flush.period.hex", _recv_hex_edit.get_replace_timer());
+		comcfg->set_key("gui.recv.edit.flush.period.text", _recv_char_edit.get_replace_timer());
 
 		// 数据发送格式设置
 		comcfg->set_key("comm.send.format", _b_send_data_format_hex ? "hex" : "char");
